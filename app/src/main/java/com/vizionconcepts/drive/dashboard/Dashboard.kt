@@ -78,6 +78,10 @@ data class DashboardLayout(val pages: List<List<Placement>>) {
         if (pages.size <= 1) this else copy(pages = pages.filterIndexed { i, _ -> i != index })
 
     /** Adds a widget below everything else on the page, at its default size. */
+    /** Adds a new page holding just [type] at full width — the biggest it can be while keeping its shape. */
+    fun addFullPage(type: WidgetType): DashboardLayout =
+        copy(pages = pages.filter { it.isNotEmpty() } + listOf(listOf(Placement(type, 0f, 0f, 1f))))
+
     fun addWidget(page: Int, type: WidgetType): DashboardLayout {
         val list = pages[page]
         val y = list.maxOfOrNull { it.bottom }?.let { Placement.snap(it + GAP) } ?: 0f

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vizionconcepts.drive.AppContainer
 import com.vizionconcepts.drive.HomeActivity
+import com.vizionconcepts.drive.dashboard.WidgetType
 import com.vizionconcepts.drive.obd.ObdPid
 import com.vizionconcepts.drive.obd.ObdState
 import com.vizionconcepts.drive.settings.ACCENTS
@@ -65,7 +67,7 @@ import com.vizionconcepts.drive.settings.ThemeMode
 import kotlinx.coroutines.launch
 
 enum class SettingsTab(val title: String) {
-    APPEARANCE("Appearance"), GAUGES("Gauges"), LAYOUT("Layout & dock"), DRIVING("Driving"),
+    APPEARANCE("Appearance"), GAUGES("Gauges"), DIGITAL_DASH("Digital Dash"), LAYOUT("Layout & dock"), DRIVING("Driving"),
     OBD("OBD-II"), AMBIENT("Ambient light"), APPS("Apps & startup"), ABOUT("About"),
 }
 
@@ -103,6 +105,7 @@ fun SettingsScreen(ui: UiState, c: AppContainer, activity: HomeActivity, initial
             when (tab) {
                 SettingsTab.APPEARANCE -> Appearance(ui.settings, update)
                 SettingsTab.GAUGES -> Gauges(ui.settings, update)
+                SettingsTab.DIGITAL_DASH -> DigitalDashSettings(ui, c, update)
                 SettingsTab.LAYOUT -> LayoutSettings(ui.settings, update)
                 SettingsTab.DRIVING -> Driving(ui.settings, update)
                 SettingsTab.OBD -> ObdSettings(ui, c, activity, update)
@@ -277,6 +280,58 @@ private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
         ToggleRow("RPM bar on the vehicle panel", "Shows a shift-light bar under the speed", s.panelRpm) { on ->
             update { it.copy(panelRpm = on) }
         }
+    }
+}
+
+@Composable
+private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings) -> Settings) -> Unit) {
+    val ctx = LocalContext.current
+    val s = ui.settings
+    fun toast(msg: String) = android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+    Section("Dash colour") {
+        Body("Tacho band, segment meters, sub-dial hands and accents on both dashes. The red shift zone starts at your shift-light rpm (Driving tab).")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
+            for (dc in DialColor.entries.filter { it != DialColor.CUSTOM && it != DialColor.ACCENT }) {
+                Swatch(Color(dc.argb), dc.label, dc.argb == s.dashColor) { update { it.copy(dashColor = dc.argb) } }
+            }
+        }
+        ColorWheel(s.dashColor, { argb -> update { it.copy(dashColor = argb) } })
+    }
+    val dashes = listOf(
+        WidgetType.RACE_DASH to "Motorsport display: big two-colour tacho with shift zone, speed and rpm readouts, " +
+            "and segment-meter tiles for coolant, fuel, outside temp and trip.",
+        WidgetType.TWIN_DASH to "Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face " +
+            "with date. Digital clock, speed and now-playing in the centre; rainbow rpm and speed bars on the edges; " +
+            "coolant, fuel and outside-temp mini gauges.",
+    )
+    for ((type, about) in dashes) {
+        Section(type.title.substringBefore(" –")) {
+            Body(about)
+            Box(Modifier.fillMaxWidth().aspectRatio(1f / type.aspect).padding(vertical = 6.dp)) {
+                if (type == WidgetType.RACE_DASH) RaceDash(ui, Modifier.fillMaxSize()) else TwinDash(ui, Modifier.fillMaxSize())
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+                Chip("Add as its own page (full size)", selected = true) {
+                    update { it.copy(layout = it.layout.addFullPage(type)) }
+                    toast("Added as a new home page – swipe to it")
+                }
+                Chip("Add to current page") {
+                    update { st ->
+                        val page = c.currentPage.value.coerceIn(0, (st.layout.pages.size - 1).coerceAtLeast(0))
+                        st.copy(layout = st.layout.addWidget(page, type))
+                    }
+                    toast("Added below your widgets – Edit dash to move it")
+                }
+            }
+        }
+    }
+    Section("Size") {
+        Body("Dashes are widgets: Edit dash → drag the corner handle to shrink or grow one. It always keeps its shape; full width is the largest size.")
+    }
+    Section("Data shown") {
+        Body("Only values the head unit can read itself: rpm, speed, coolant temp, fuel level and outside temp from the car's CANbus " +
+            "(via the CAN decoder), plus GPS (trip, heading, altitude) and the clock. Anything not received yet shows --. " +
+            "Engine-computer-only values such as boost, throttle, AFR and oil temp are left out.")
     }
 }
 

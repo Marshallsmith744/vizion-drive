@@ -2,6 +2,7 @@ package com.vizionconcepts.drive.dashboard
 
 import com.vizionconcepts.drive.obd.ObdPid
 import com.vizionconcepts.drive.obd.ObdSnapshot
+import com.vizionconcepts.drive.vehicle.GpsState
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -20,7 +21,7 @@ object DashMath {
     fun segmentsLit(fraction: Float, n: Int): Int = (fraction.coerceIn(0f, 1f) * n).roundToInt().coerceIn(0, n)
 
     fun format(v: Float, unit: String): String = when (unit) {
-        "V", "psi" -> String.format(Locale.US, "%.1f", v)
+        "V", "psi", "km" -> String.format(Locale.US, "%.1f", v)
         else -> v.roundToInt().toString()
     }
 
@@ -32,29 +33,30 @@ object DashMath {
     fun tachoMax(shiftRpm: Int): Int = maxOf(8, shiftRpm / 1000 + 2)
 }
 
-/** The values a race-dash tile can show, read from OBD data. */
+/**
+ * The values the digital dashes show. Only things the head unit itself can know are included:
+ * signals the car's body CANbus carries to the head unit through the CAN decoder (rpm, speed,
+ * coolant, fuel level, outside temperature) and what the head unit measures (GPS trip).
+ * Engine-computer-only values (boost, throttle, load, intake/oil temp, AFR) are deliberately left out.
+ */
 enum class DashChannel(
     val label: String,
     val unit: String,
     val min: Float,
     val max: Float,
-    private val read: (ObdSnapshot) -> Float?,
+    private val read: (ObdSnapshot, GpsState) -> Float?,
 ) {
-    MANIFOLD("Manifold", "psi", -15f, 10f, { o -> o[ObdPid.MAP]?.let(DashMath::boostPsi) }),
-    THROTTLE("Throttle", "%", 0f, 100f, { it[ObdPid.THROTTLE] }),
-    LOAD("Engine load", "%", 0f, 100f, { it[ObdPid.ENGINE_LOAD] }),
-    INTAKE("Intake temp", "°C", 0f, 80f, { it[ObdPid.INTAKE_TEMP] }),
-    COOLANT("Coolant temp", "°C", 40f, 120f, { it[ObdPid.COOLANT] }),
-    OIL("Oil temp", "°C", 40f, 150f, { it[ObdPid.OIL_TEMP] }),
-    BATTERY("Battery", "V", 11f, 15f, { it[ObdPid.VOLTAGE] }),
-    FUEL("Fuel level", "%", 0f, 100f, { it[ObdPid.FUEL_LEVEL] });
+    COOLANT("Coolant temp", "°C", 40f, 120f, { o, _ -> o[ObdPid.COOLANT] }),
+    FUEL("Fuel level", "%", 0f, 100f, { o, _ -> o[ObdPid.FUEL_LEVEL] }),
+    OUTSIDE("Outside temp", "°C", -10f, 45f, { o, _ -> o[ObdPid.AMBIENT] }),
+    TRIP("Trip", "km", 0f, 500f, { _, g -> g.tripKm.toFloat() });
 
-    fun value(o: ObdSnapshot): Float? = read(o)
-    fun fraction(o: ObdSnapshot): Float = value(o)?.let { DashMath.fraction(it, min, max) } ?: 0f
-    fun text(o: ObdSnapshot): String = value(o)?.let { DashMath.format(it, unit) } ?: "--"
+    fun value(o: ObdSnapshot, g: GpsState = GpsState()): Float? = read(o, g)
+    fun fraction(o: ObdSnapshot, g: GpsState = GpsState()): Float = value(o, g)?.let { DashMath.fraction(it, min, max) } ?: 0f
+    fun text(o: ObdSnapshot, g: GpsState = GpsState()): String = value(o, g)?.let { DashMath.format(it, unit) } ?: "--"
 
     companion object {
-        val LEFT = listOf(MANIFOLD, THROTTLE, LOAD, INTAKE)
-        val RIGHT = listOf(COOLANT, OIL, BATTERY, FUEL)
+        val LEFT = listOf(COOLANT, FUEL)
+        val RIGHT = listOf(OUTSIDE, TRIP)
     }
 }

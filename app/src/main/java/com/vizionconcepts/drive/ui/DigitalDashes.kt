@@ -44,7 +44,8 @@ import kotlin.math.sin
  *    segment meters down both sides, gear/speed/rpm boxes.
  *  - TwinDash: two large multi-dial clusters (speed + watch face) with a digital centre,
  *    rainbow level bars on the edges and small sub-gauges.
- * Both follow the dial colour chosen in Settings → Gauges.
+ * Both use the dash colour from Settings → Digital Dash, and only show values the head unit can
+ * get on its own (CANbus via the CAN decoder, plus GPS) — see DashChannel.
  */
 
 private val DashRed = Color(0xFFFF2A2A)
@@ -93,9 +94,10 @@ fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
     val rpm = ui.obd[ObdPid.RPM] ?: 0f
     val maxK = DashMath.tachoMax(ui.settings.shiftRpm)
     val f by animateFloatAsState(DashMath.fraction(rpm, 0f, maxK * 1000f), tween(180), label = "race")
-    val accent = ui.dialColor()
+    val accent = Color(ui.settings.dashColor)
     val shiftK = ui.settings.shiftRpm / 1000f
     val obd = ui.obd
+    val gps = ui.gps
     val speed = ui.speedShown
     val unit = ui.settings.unit.label
     Box(modifier.clip(RoundedCornerShape(22.dp)).background(Color(0xFF0B0C0E))) {
@@ -104,14 +106,14 @@ fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
             val h = size.height
             val pad = h * 0.03f
             val tileW = w * 0.255f
-            val tileH = (h - pad * 5) / 4f
+            val tileH = (h - pad * 3) / 2f
 
             // Side tiles
             DashChannel.LEFT.forEachIndexed { i, ch ->
-                raceTile(Rect(Offset(pad, pad + i * (tileH + pad)), Size(tileW, tileH)), ch.text(obd), ch.unit, ch.label, ch.fraction(obd), accent, left = true)
+                raceTile(Rect(Offset(pad, pad + i * (tileH + pad)), Size(tileW, tileH)), ch.text(obd, gps), ch.unit, ch.label, ch.fraction(obd, gps), accent, left = true)
             }
             DashChannel.RIGHT.forEachIndexed { i, ch ->
-                raceTile(Rect(Offset(w - pad - tileW, pad + i * (tileH + pad)), Size(tileW, tileH)), ch.text(obd), ch.unit, ch.label, ch.fraction(obd), accent, left = false)
+                raceTile(Rect(Offset(w - pad - tileW, pad + i * (tileH + pad)), Size(tileW, tileH)), ch.text(obd, gps), ch.unit, ch.label, ch.fraction(obd, gps), accent, left = false)
             }
 
             // Centre tacho
@@ -148,13 +150,12 @@ fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
             drawCircle(DashRed, r * 0.055f, c)
             drawCircle(Color(0xFF0B0C0E), r * 0.022f, c)
 
-            // Gear / speed / rpm boxes in the open quarter at bottom-right of the dial
+            // Speed and rpm boxes in the open quarter at bottom-right of the dial
             val bx = c.x - r * 0.04f
             val by = c.y + r * 0.47f
             val bh = r * 0.27f
-            infoBox(Rect(Offset(bx, by), Size(bh * 0.8f, bh)), "–", "GEAR")
-            infoBox(Rect(Offset(bx + bh * 0.88f, by), Size(r * 0.72f - bh * 0.88f, bh)), "$speed", "SPEED ${unit.uppercase(Locale.US)}")
-            infoBox(Rect(Offset(bx, by + bh * 1.06f), Size(r * 0.62f, bh * 0.72f)), if (obd.connected) "${rpm.toInt()}" else "--", "RPM")
+            infoBox(Rect(Offset(bx, by), Size(r * 0.7f, bh)), "$speed", "SPEED ${unit.uppercase(Locale.US)}")
+            infoBox(Rect(Offset(bx, by + bh * 1.06f), Size(r * 0.62f, bh * 0.72f)), if (obd[ObdPid.RPM] != null) "${rpm.toInt()}" else "--", "RPM")
         }
     }
 }
@@ -176,9 +177,9 @@ private fun DrawScope.raceTile(rect: Rect, value: String, unit: String, name: St
         drawRect(if (i < lit) accent else accent.copy(alpha = 0.16f), Offset(barX, y), Size(barW, segH))
     }
     // Value + unit, label underneath
-    val vs = rect.height * 0.46f
+    val vs = min(rect.height * 0.34f, rect.width * 0.3f)
     val textX = if (left) barX + barW + rect.width * 0.07f else barX - rect.width * 0.07f
-    val vy = rect.top + rect.height * 0.42f
+    val vy = rect.top + rect.height * 0.44f
     textPaint.typeface = condensedBold
     textPaint.textSize = vs
     val vw = textPaint.measureText(value)
@@ -191,7 +192,7 @@ private fun DrawScope.raceTile(rect: Rect, value: String, unit: String, name: St
         label(unit, textX, vy + vs * 0.14f, vs * 0.42f, DashWhite, Paint.Align.RIGHT)
         label(value, textX - uw - vs * 0.06f, vy, vs, DashWhite, Paint.Align.RIGHT)
     }
-    label(name.uppercase(Locale.US), textX, rect.top + rect.height * 0.8f, rect.height * 0.13f, DashDim,
+    label(name.uppercase(Locale.US), textX, rect.top + rect.height * 0.72f, vs * 0.3f, DashDim,
         if (left) Paint.Align.LEFT else Paint.Align.RIGHT, medium)
 }
 
@@ -211,12 +212,11 @@ private val MONTHS = listOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AU
 @Composable
 fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
     val now = rememberNow()
-    val accent = ui.dialColor()
+    val accent = Color(ui.settings.dashColor)
     val speed = ui.speedShown
     val speedF by animateFloatAsState(DashMath.fraction(speed.toFloat(), 0f, ui.speedMax), tween(220), label = "twinSpeed")
     val rpm = ui.obd[ObdPid.RPM]
     val rpmF by animateFloatAsState(DashMath.fraction(rpm ?: 0f, 0f, 8000f), tween(180), label = "twinRpm")
-    val throttle = ui.obd[ObdPid.THROTTLE]
     val gps = ui.gps
     val unit = ui.settings.unit.label
     val media = ui.media
@@ -234,10 +234,9 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
                 Brush.verticalGradient(listOf(Color(0xFFB9BEC6), Color(0xFF3A3E44), Color(0xFF9AA0A8))),
                 Offset(h * 0.01f, h * 0.01f), Size(w - h * 0.02f, h - h * 0.02f), CornerRadius(h * 0.06f), style = Stroke(h * 0.012f),
             )
-            // Rainbow level bars on both edges: rpm (or speed) on the left, throttle (or speed) on the right
+            // Rainbow level bars on both edges: rpm on the left (speed until rpm arrives), speed on the right
             levelBar(Rect(Offset(h * 0.035f, h * 0.18f), Size(w * 0.012f, h * 0.64f)), if (rpm != null) rpmF else speedF)
-            levelBar(Rect(Offset(w - h * 0.035f - w * 0.012f, h * 0.18f), Size(w * 0.012f, h * 0.64f)),
-                throttle?.let { it / 100f } ?: speedF)
+            levelBar(Rect(Offset(w - h * 0.035f - w * 0.012f, h * 0.18f), Size(w * 0.012f, h * 0.64f)), speedF)
 
             val r = min(w * 0.19f, h * 0.43f)
             val lc = Offset(w * 0.215f, h * 0.45f)
@@ -278,8 +277,8 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
             // Mini gauges along the bottom centre
             val mini = listOf(
                 Triple("COOLANT", DashChannel.COOLANT.fraction(obd), DashChannel.COOLANT.text(obd)),
-                Triple("BATTERY", DashChannel.BATTERY.fraction(obd), DashChannel.BATTERY.text(obd)),
                 Triple("FUEL", DashChannel.FUEL.fraction(obd), DashChannel.FUEL.text(obd)),
+                Triple("OUTSIDE", DashChannel.OUTSIDE.fraction(obd), DashChannel.OUTSIDE.text(obd)),
             )
             val mr = h * 0.065f
             mini.forEachIndexed { i, (name, frac, txt) ->

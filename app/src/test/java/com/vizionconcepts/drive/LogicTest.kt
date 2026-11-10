@@ -252,17 +252,33 @@ class DigitalDashTest {
         assertTrue(m.tachoMax(7500) * 1000 > 7500)
     }
 
-    @Test fun channelsReadObdAndShowDashesWhenMissing() {
+    @Test fun channelsReadCarDataAndShowDashesWhenMissing() {
         val empty = com.vizionconcepts.drive.obd.ObdSnapshot()
         assertEquals("--", DashChannel.COOLANT.text(empty))
         assertEquals(0f, DashChannel.COOLANT.fraction(empty), 0f)
         val snap = com.vizionconcepts.drive.obd.ObdSnapshot(values = mapOf(
             com.vizionconcepts.drive.obd.ObdPid.COOLANT to 90.4f,
-            com.vizionconcepts.drive.obd.ObdPid.VOLTAGE to 14.13f,
+            com.vizionconcepts.drive.obd.ObdPid.AMBIENT to 21f,
         ))
         assertEquals("90", DashChannel.COOLANT.text(snap))
-        assertEquals("14.1", DashChannel.BATTERY.text(snap))
-        assertEquals(4, DashChannel.LEFT.size); assertEquals(4, DashChannel.RIGHT.size)
+        assertEquals("21", DashChannel.OUTSIDE.text(snap))
+        assertEquals("12.3", DashChannel.TRIP.text(snap, com.vizionconcepts.drive.vehicle.GpsState(tripKm = 12.34)))
+        assertEquals(2, DashChannel.LEFT.size); assertEquals(2, DashChannel.RIGHT.size)
+    }
+
+    @Test fun onlyHeadUnitReadableValues() {
+        // Engine-computer-only values must not appear on the dashes.
+        val names = DashChannel.entries.map { it.name }.toSet()
+        assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP"), names)
+    }
+
+    @Test fun fullPageDashUsesWholeWidth() {
+        val l = DashboardLayout.of(listOf(WidgetType.CLOCK)).addFullPage(WidgetType.TWIN_DASH)
+        assertEquals(2, l.pages.size)
+        val p = l.pages[1].single()
+        assertEquals(WidgetType.TWIN_DASH, p.type)
+        assertEquals(0f, p.x, 0f); assertEquals(0f, p.y, 0f); assertEquals(1f, p.w, 0f)
+        assertEquals(0.56f, p.h, 0.001f)
     }
 
     @Test fun dashesStartFullWidthAndStayProportional() {

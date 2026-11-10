@@ -71,6 +71,8 @@ data class Settings(
     val speedStyle: GaugeStyle = GaugeStyle.SPORT_GLOW,
     val dialColor: DialColor = DialColor.RED,
     val customDial: Long = 0xFF00F0FF,
+    /** Colour of the digital dashes (ARGB). Defaults to motorsport yellow. */
+    val dashColor: Long = 0xFFFFE600,
     val bgVersion: Long = 0,
     val bgDim: Float = 0.35f,
     val bgBlur: Boolean = false,
@@ -113,6 +115,7 @@ class SettingsRepository(private val context: Context) {
         val speedColor = stringPreferencesKey("speed_color")
         val dialColor = stringPreferencesKey("dial_color")
         val customDial = longPreferencesKey("custom_dial")
+        val dashColor = longPreferencesKey("dash_color")
         val bgVersion = longPreferencesKey("bg_version")
         val bgDim = floatPreferencesKey("bg_dim")
         val bgBlur = booleanPreferencesKey("bg_blur")
@@ -153,6 +156,7 @@ class SettingsRepository(private val context: Context) {
             p[K.speedColor] = s.speedColor.name
             p[K.dialColor] = s.dialColor.name
             p[K.customDial] = s.customDial
+            p[K.dashColor] = s.dashColor
             p[K.bgVersion] = s.bgVersion
             p[K.bgDim] = s.bgDim
             p[K.bgBlur] = s.bgBlur
@@ -190,6 +194,7 @@ class SettingsRepository(private val context: Context) {
         speedColor = enumOr(p[K.speedColor], d.speedColor),
         dialColor = enumOr(p[K.dialColor], d.dialColor),
         customDial = p[K.customDial] ?: d.customDial,
+        dashColor = p[K.dashColor] ?: d.dashColor,
         bgVersion = p[K.bgVersion] ?: d.bgVersion,
         bgDim = p[K.bgDim] ?: d.bgDim,
         bgBlur = p[K.bgBlur] ?: d.bgBlur,
