@@ -45,8 +45,14 @@ fun StyledGauge(
     redFrom: Float? = null,
     numberSize: TextUnit = 64.sp,
     numberColor: Color? = null,
+    dialColor: Color? = null,
+    gear: String? = null,
 ) {
     val p = LocalPalette.current
+    if (style.isPremium()) {
+        PremiumDial(style, value, max, text, unit, dialColor ?: p.accent, modifier, redFrom, gear)
+        return
+    }
     val inRed = redFrom != null && value >= redFrom
     val color = when {
         inRed -> p.danger
@@ -66,6 +72,7 @@ fun StyledGauge(
             SegmentBar(value / max, redFrom = (redFrom ?: max * 0.9f) / max, shiftLight = redFrom != null)
         }
         GaugeStyle.HUD -> HudGauge(value, max, text, unit, modifier, color, numberSize)
+        else -> Unit
     }
 }
 

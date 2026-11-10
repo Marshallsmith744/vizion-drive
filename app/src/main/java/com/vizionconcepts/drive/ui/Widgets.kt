@@ -87,6 +87,11 @@ data class UiState(
     val speedMax: Float get() = if (settings.unit.name == "MPH") 160f else 260f
 
     @Composable
+    fun dialColor(): Color =
+        if (settings.dialColor == com.vizionconcepts.drive.settings.DialColor.ACCENT) LocalPalette.current.accent
+        else Color(settings.dialColor.argb)
+
+    @Composable
     fun speedNumberColor(): Color? =
         if (settings.speedColor == com.vizionconcepts.drive.settings.NumberColor.ACCENT) LocalPalette.current.accent else null
     fun mpsShown(mps: Float): Int = (mps * settings.unit.fromMps).toInt()
@@ -105,14 +110,14 @@ fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -
             WidgetType.SPEEDO -> StyledGauge(
                 ui.settings.speedStyle, ui.speedShown.toFloat(), ui.speedMax, "${ui.speedShown}", ui.settings.unit.label,
                 Modifier.fillMaxSize(), redFrom = ui.settings.speedAlert.takeIf { it > 0 }?.toFloat(),
-                numberColor = ui.speedNumberColor(),
+                numberColor = ui.speedNumberColor(), dialColor = ui.dialColor(),
             )
             WidgetType.TACHO -> {
                 val rpm = ui.obd[ObdPid.RPM] ?: 0f
                 StyledGauge(
                     ui.settings.rpmStyle, rpm / 1000f, 8f, if (ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.DIGITAL || ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.BAR) "${rpm.toInt()}" else "%.1f".format(rpm / 1000f),
                     if (ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.DIGITAL || ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.BAR) "rpm" else "×1000 rpm",
-                    Modifier.fillMaxSize(), redFrom = ui.settings.shiftRpm / 1000f,
+                    Modifier.fillMaxSize(), redFrom = ui.settings.shiftRpm / 1000f, dialColor = ui.dialColor(),
                 )
             }
             WidgetType.SPEED_ARC -> ArcGauge(ui.speedShown.toFloat(), 0f, if (ui.settings.unit.name == "MPH") 140f else 220f,

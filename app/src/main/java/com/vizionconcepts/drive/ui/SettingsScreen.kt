@@ -54,6 +54,7 @@ import com.vizionconcepts.drive.obd.ObdState
 import com.vizionconcepts.drive.settings.ACCENTS
 import com.vizionconcepts.drive.settings.BackgroundStyle
 import com.vizionconcepts.drive.settings.DockPosition
+import com.vizionconcepts.drive.settings.DialColor
 import com.vizionconcepts.drive.settings.GaugeStyle
 import com.vizionconcepts.drive.settings.NumberColor
 import com.vizionconcepts.drive.settings.LayoutMode
@@ -196,15 +197,29 @@ private fun Appearance(s: Settings, update: ((Settings) -> Settings) -> Unit) {
 private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
     val p = LocalPalette.current
     val sampleSpeed = if (s.unit == SpeedUnit.MPH) 62 else 100
+    val dial = if (s.dialColor == DialColor.ACCENT) p.accent else Color(s.dialColor.argb)
     Section("Speedometer style") {
         Body("Used for the big speed on the vehicle panel and the \"Speedometer (your gauge style)\" widget.")
         GaugePicker(s.speedStyle) { st -> update { it.copy(speedStyle = st) } }
-        Box(Modifier.fillMaxWidth().height(260.dp).padding(top = 12.dp)) {
+        Box(Modifier.fillMaxWidth().height(320.dp).padding(top = 12.dp)) {
             StyledGauge(
                 s.speedStyle, sampleSpeed.toFloat(), if (s.unit == SpeedUnit.MPH) 160f else 260f, "$sampleSpeed", s.unit.label,
                 Modifier.fillMaxSize(), numberSize = 96.sp,
                 numberColor = if (s.speedColor == NumberColor.ACCENT) p.accent else null,
+                dialColor = dial, gear = "D",
             )
+        }
+    }
+    Section("Dial colour") {
+        Body("Glow, needle and band colour for Sport glow, Chrome classic, Race band and Road view.")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            for (dc in DialColor.entries) {
+                val col = if (dc == DialColor.ACCENT) p.accent else Color(dc.argb)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { update { it.copy(dialColor = dc) } }) {
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(col).border(if (dc == s.dialColor) 3.dp else 0.dp, p.text, CircleShape))
+                    Text(dc.label, color = p.dim, fontSize = 12.sp)
+                }
+            }
         }
     }
     Section("Speed number colour") {
@@ -219,7 +234,7 @@ private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
             val digital = s.rpmStyle == GaugeStyle.DIGITAL || s.rpmStyle == GaugeStyle.BAR
             StyledGauge(
                 s.rpmStyle, 4.2f, 8f, if (digital) "4200" else "4.2", if (digital) "rpm" else "×1000 rpm",
-                Modifier.fillMaxSize(), redFrom = s.shiftRpm / 1000f, numberSize = 96.sp,
+                Modifier.fillMaxSize(), redFrom = s.shiftRpm / 1000f, numberSize = 96.sp, dialColor = dial,
             )
         }
         ToggleRow("RPM bar on the vehicle panel", "Shows a shift-light bar under the speed", s.panelRpm) { on ->

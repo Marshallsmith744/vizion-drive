@@ -21,7 +21,12 @@ enum class SpeedUnit(val label: String, val fromMps: Float) {
 }
 enum class LayoutMode { SPLIT, FULL }
 enum class GaugeStyle(val label: String) {
+    SPORT_GLOW("Sport glow"), CHROME("Chrome classic"), RACE_BAND("Race band"), ROAD("Road view"),
     DIGITAL("Digital"), ARC("Arc"), NEEDLE("Needle dial"), RING("Ring"), BAR("Segment bar"), HUD("HUD")
+}
+enum class DialColor(val label: String, val argb: Long) {
+    ACCENT("Accent", 0), RED("Red", 0xFFFF2D1F), CYAN("Cyan", 0xFF22D3EE), AMBER("Amber", 0xFFFFB020),
+    WHITE("White", 0xFFF4F6F8), GREEN("Green", 0xFF34C759), PURPLE("Purple", 0xFFBF5AF2)
 }
 enum class NumberColor { TEXT, ACCENT }
 enum class DockPosition { BOTTOM, TOP }
@@ -61,7 +66,8 @@ data class Settings(
     val lowVoltageAlert: Float = 11.8f,
     val shiftRpm: Int = 6000,
     val noteText: String = "Vizion Drive",
-    val speedStyle: GaugeStyle = GaugeStyle.DIGITAL,
+    val speedStyle: GaugeStyle = GaugeStyle.SPORT_GLOW,
+    val dialColor: DialColor = DialColor.RED,
     val rpmStyle: GaugeStyle = GaugeStyle.BAR,
     val speedColor: NumberColor = NumberColor.TEXT,
     val panelRpm: Boolean = true,
@@ -99,6 +105,7 @@ class SettingsRepository(private val context: Context) {
         val speedStyle = stringPreferencesKey("speed_style")
         val rpmStyle = stringPreferencesKey("rpm_style")
         val speedColor = stringPreferencesKey("speed_color")
+        val dialColor = stringPreferencesKey("dial_color")
         val panelRpm = booleanPreferencesKey("panel_rpm")
     }
 
@@ -134,6 +141,7 @@ class SettingsRepository(private val context: Context) {
             p[K.speedStyle] = s.speedStyle.name
             p[K.rpmStyle] = s.rpmStyle.name
             p[K.speedColor] = s.speedColor.name
+            p[K.dialColor] = s.dialColor.name
             p[K.panelRpm] = s.panelRpm
         }
     }
@@ -166,6 +174,7 @@ class SettingsRepository(private val context: Context) {
         speedStyle = enumOr(p[K.speedStyle], d.speedStyle),
         rpmStyle = enumOr(p[K.rpmStyle], d.rpmStyle),
         speedColor = enumOr(p[K.speedColor], d.speedColor),
+        dialColor = enumOr(p[K.dialColor], d.dialColor),
         panelRpm = p[K.panelRpm] ?: d.panelRpm,
     )
 

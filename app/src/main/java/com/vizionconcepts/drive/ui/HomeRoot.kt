@@ -180,7 +180,7 @@ private fun VehiclePanel(ui: UiState, modifier: Modifier, open: (Overlay) -> Uni
                 Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp),
                 redFrom = ui.settings.speedAlert.takeIf { it > 0 }?.toFloat(),
                 numberSize = 140.sp,
-                numberColor = if (over) p.danger else ui.speedNumberColor(),
+                numberColor = if (over) p.danger else ui.speedNumberColor(), dialColor = ui.dialColor(),
             )
             if (obd.connected && ui.settings.panelRpm) {
                 val rpm = obd[ObdPid.RPM] ?: 0f
@@ -217,7 +217,7 @@ private fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overlay
                 Modifier.weight(0.42f).fillMaxHeight(),
                 redFrom = ui.settings.speedAlert.takeIf { it > 0 }?.toFloat(),
                 numberSize = 120.sp,
-                numberColor = if (over) p.danger else ui.speedNumberColor(),
+                numberColor = if (over) p.danger else ui.speedNumberColor(), dialColor = ui.dialColor(),
             )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(0.58f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
