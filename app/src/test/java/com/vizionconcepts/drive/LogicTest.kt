@@ -278,6 +278,23 @@ class DigitalDashTest {
         assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP", "AVG_SPEED", "TOP_SPEED", "TRIP_TIME", "ALTITUDE"), names)
     }
 
+    @Test fun oldSplitPanelBecomesTopWidget() {
+        val old = DashboardLayout.of(listOf(WidgetType.CLOCK, WidgetType.WEATHER), listOf(WidgetType.MEDIA))
+        val l = old.withPanelOnTop()
+        val p0 = l.pages[0]
+        assertEquals(WidgetType.VEHICLE_PANEL, p0.first().type)
+        assertEquals(1f, p0.first().w, 0f)
+        assertEquals(0f, p0.first().y, 0f)
+        // everything that was on page 1 moved below the panel, nothing overlaps, page 2 untouched
+        p0.drop(1).forEach { assertTrue(it.y >= p0.first().bottom) }
+        for (i in p0.indices) for (j in p0.indices) if (i < j) assertTrue(!p0[i].overlaps(p0[j]))
+        assertEquals(old.pages[1], l.pages[1])
+        // only done once
+        assertEquals(l, l.withPanelOnTop())
+        // removable like any widget
+        assertEquals(old.pages[0].size, l.removeWidget(0, 0).pages[0].size)
+    }
+
     @Test fun clusterIsFullWidthAndTwoToOne() {
         val l = DashboardLayout(listOf(emptyList())).addFullPage(WidgetType.CLUSTER_DASH)
         val p = l.pages.last().single()

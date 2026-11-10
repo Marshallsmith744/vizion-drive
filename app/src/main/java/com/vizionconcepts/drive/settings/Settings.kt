@@ -168,6 +168,13 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /**
+     * The old fixed "split" vehicle panel is now an ordinary widget: put it on top of page 1
+     * (everything else shifts down) and switch to the widgets-only home layout.
+     */
+    private fun Settings.withPanelAsWidget(): Settings =
+        if (layoutMode != LayoutMode.SPLIT) this else copy(layout = layout.withPanelOnTop(), layoutMode = LayoutMode.FULL)
+
     private fun readFrom(p: Preferences, d: Settings) = Settings(
         accent = p[K.accent] ?: d.accent,
         themeMode = enumOr(p[K.themeMode], d.themeMode),
@@ -204,7 +211,7 @@ class SettingsRepository(private val context: Context) {
         bgDim = p[K.bgDim] ?: d.bgDim,
         bgBlur = p[K.bgBlur] ?: d.bgBlur,
         panelRpm = p[K.panelRpm] ?: d.panelRpm,
-    )
+    ).withPanelAsWidget()
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
         name?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: default

@@ -105,6 +105,7 @@ data class UiState(
 fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -> Unit, modifier: Modifier = Modifier) {
     // Digital dashes draw their own full-bleed face.
     when (type) {
+        WidgetType.VEHICLE_PANEL -> { VehiclePanelPortrait(ui, modifier, open); return }
         WidgetType.TWIN_DASH -> { TwinDash(ui, modifier); return }
         WidgetType.CLUSTER_DASH -> { ClusterDash(ui, modifier); return }
         else -> Unit
@@ -162,7 +163,7 @@ fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -
             WidgetType.AMBIENT -> AmbientWidget(ui.ambient, c, open)
             WidgetType.VOLUME -> VolumeWidget(ui.volume, c)
             WidgetType.NOTE -> NoteWidget(ui.settings.noteText)
-            WidgetType.TWIN_DASH, WidgetType.CLUSTER_DASH -> Unit
+            WidgetType.TWIN_DASH, WidgetType.CLUSTER_DASH, WidgetType.VEHICLE_PANEL -> Unit
         }
     }
 }

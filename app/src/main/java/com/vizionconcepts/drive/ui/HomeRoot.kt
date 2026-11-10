@@ -210,7 +210,7 @@ private fun VehiclePanel(ui: UiState, modifier: Modifier, open: (Overlay) -> Uni
 
 /** Portrait vehicle strip: huge speed on the left, engine data and shortcuts on the right. */
 @Composable
-private fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overlay) -> Unit) {
+internal fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overlay) -> Unit) {
     val p = LocalPalette.current
     val obd = ui.obd
     val over = ui.settings.speedAlert > 0 && ui.speedShown > ui.settings.speedAlert

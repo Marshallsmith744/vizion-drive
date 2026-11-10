@@ -388,11 +388,8 @@ private fun Swatch(col: Color, label: String, selected: Boolean, onClick: () -> 
 @Composable
 private fun LayoutSettings(s: Settings, update: ((Settings) -> Settings) -> Unit) {
     val p = LocalPalette.current
-    Section("Home layout") {
-        ChoiceRow(LayoutMode.entries, s.layoutMode, { if (it == LayoutMode.SPLIT) "Split (vehicle panel + widgets)" else "Widgets only" }) { m ->
-            update { it.copy(layoutMode = m) }
-        }
-        Body("Split mode keeps a large speedometer on the left, like a Tesla-style head unit.")
+    Section("Vehicle panel") {
+        Body("The speed / rpm / temps panel is a widget: Edit dash to move, resize or remove it, or + Add widget → Vehicle panel to bring it back.")
     }
     Section("Dock") {
         ChoiceRow(DockPosition.entries, s.dockPosition, { if (it == DockPosition.BOTTOM) "Bottom" else "Top" }) { d ->

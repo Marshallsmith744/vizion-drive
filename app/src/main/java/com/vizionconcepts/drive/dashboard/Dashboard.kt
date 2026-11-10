@@ -6,6 +6,7 @@ package com.vizionconcepts.drive.dashboard
  * [aspect] = height / width; it is fixed so resizing always keeps proportions.
  */
 enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = false, val aspect: Float = if (span == 2) 0.42f else 1f) {
+    VEHICLE_PANEL("Vehicle panel – speed, rpm, temps", 2, aspect = 0.36f),
     SPEEDO("Speedometer (your gauge style)", 1),
     TACHO("Tachometer (your gauge style)", 1, needsObd = true),
     CLUSTER_DASH("Twin-gauge cluster – tacho, speedo, temps", 2, aspect = 0.5f),
@@ -84,7 +85,7 @@ data class Placement(val type: WidgetType, val x: Float, val y: Float, val w: Fl
         }
 
         fun defaultWidth(t: WidgetType) = when {
-            t.isFullDash -> 1f
+            t.isFullDash || t == WidgetType.VEHICLE_PANEL -> 1f
             t.span == 2 -> 0.64f
             else -> 0.32f
         }
@@ -107,6 +108,15 @@ data class DashboardLayout(val pages: List<List<Placement>>) {
 
     fun removePage(index: Int): DashboardLayout =
         if (pages.size <= 1) this else copy(pages = pages.filterIndexed { i, _ -> i != index })
+
+    /** Puts the vehicle panel full-width at the top of page 1, shifting that page down. No-op if it's already placed. */
+    fun withPanelOnTop(): DashboardLayout {
+        if (pages.any { p -> p.any { it.type == WidgetType.VEHICLE_PANEL } }) return this
+        val panel = Placement(WidgetType.VEHICLE_PANEL, 0f, 0f, 1f)
+        val shift = Placement.snapUp(panel.h + GAP)
+        val first = pages.firstOrNull().orEmpty().map { it.copy(y = it.y + shift) }
+        return DashboardLayout(listOf(listOf(panel) + first) + pages.drop(1))
+    }
 
     /** Adds a new page holding just [type] at full width — the biggest it can be while keeping its shape. */
     fun addFullPage(type: WidgetType): DashboardLayout =
