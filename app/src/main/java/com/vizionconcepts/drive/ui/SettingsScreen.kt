@@ -169,6 +169,20 @@ private fun Body(text: String) = Text(text, color = LocalPalette.current.dim, fo
 @Composable
 private fun Appearance(s: Settings, update: ((Settings) -> Settings) -> Unit) {
     val p = LocalPalette.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) scope.launch {
+            busy = true
+            val ok = BackgroundImage.save(context, uri)
+            busy = false
+            if (ok) update { it.copy(background = BackgroundStyle.IMAGE, bgVersion = System.currentTimeMillis()) }
+            else android.widget.Toast.makeText(context, "Couldn't open that image", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
     Section("Theme") {
         ChoiceRow(ThemeMode.entries, s.themeMode, { when (it) { ThemeMode.AUTO -> "Auto (night 19–7)"; ThemeMode.DARK -> "Dark"; ThemeMode.LIGHT -> "Light" } }) { m ->
             update { it.copy(themeMode = m) }
@@ -188,7 +202,28 @@ private fun Appearance(s: Settings, update: ((Settings) -> Settings) -> Unit) {
         ColorWheel(s.accent, { argb -> update { it.copy(accent = argb) } }, Modifier.padding(top = 8.dp).size(200.dp))
     }
     Section("Background") {
-        ChoiceRow(BackgroundStyle.entries, s.background, { it.label }) { b -> update { it.copy(background = b) } }
+        ChoiceRow(BackgroundStyle.entries, s.background, { it.label }) { b ->
+            if (b == BackgroundStyle.IMAGE && s.bgVersion == 0L) picker.launch("image/*") else update { it.copy(background = b) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            Chip(if (s.bgVersion > 0) "Change photo" else "Choose photo…") { picker.launch("image/*") }
+            if (s.bgVersion > 0) Chip("Remove photo") {
+                BackgroundImage.delete(context)
+                update { it.copy(bgVersion = 0, background = BackgroundStyle.GRAPHITE) }
+            }
+        }
+        if (busy) Body("Loading photo…")
+        if (s.bgVersion > 0) {
+            Box(Modifier.fillMaxWidth().height(160.dp).padding(top = 10.dp).clip(RoundedCornerShape(14.dp))) {
+                PhotoBackground(s.bgVersion, s.bgDim, s.bgBlur)
+                Text("Preview", color = Color.White, modifier = Modifier.align(Alignment.Center))
+            }
+            SliderRow("Darken photo", "${(s.bgDim * 100).toInt()}%", s.bgDim, 0f..0.85f) { v -> update { it.copy(bgDim = v) } }
+            ToggleRow("Blur photo", "Softens busy photos so gauges pop", s.bgBlur) { on -> update { it.copy(bgBlur = on) } }
+            Body("Tip: lower Card opacity below to let more of the photo show through.")
+        } else {
+            Body("Pick any image from the head unit: gallery, Downloads or a USB stick.")
+        }
     }
     Section("Cards") {
         SliderRow("Card opacity", "${(s.cardOpacity * 100).toInt()}%", s.cardOpacity, 0.3f..1f) { v -> update { it.copy(cardOpacity = v) } }

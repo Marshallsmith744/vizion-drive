@@ -89,6 +89,7 @@ fun backgroundBrush(style: BackgroundStyle, dark: Boolean, accent: Color): Brush
             end = androidx.compose.ui.geometry.Offset(24f, 24f),
             tileMode = androidx.compose.ui.graphics.TileMode.Repeated,
         )
+        BackgroundStyle.IMAGE -> Brush.verticalGradient(listOf(Color(0xFF0A0B0D), Color.Black))
         BackgroundStyle.EMBER -> Brush.radialGradient(
             listOf(accent.copy(alpha = 0.35f), Color(0xFF0A0A0B)),
             radius = 1400f,

@@ -34,7 +34,7 @@ enum class NumberColor { TEXT, ACCENT }
 enum class DockPosition { BOTTOM, TOP }
 enum class BackgroundStyle(val label: String) {
     BLACK("Pure black"), GRAPHITE("Graphite"), MIDNIGHT("Midnight blue"),
-    CARBON("Carbon weave"), EMBER("Ember glow")
+    CARBON("Carbon weave"), EMBER("Ember glow"), IMAGE("Your photo")
 }
 
 /** Accent palette offered in settings (ARGB). */
@@ -71,6 +71,9 @@ data class Settings(
     val speedStyle: GaugeStyle = GaugeStyle.SPORT_GLOW,
     val dialColor: DialColor = DialColor.RED,
     val customDial: Long = 0xFF00F0FF,
+    val bgVersion: Long = 0,
+    val bgDim: Float = 0.35f,
+    val bgBlur: Boolean = false,
     val rpmStyle: GaugeStyle = GaugeStyle.BAR,
     val speedColor: NumberColor = NumberColor.TEXT,
     val panelRpm: Boolean = true,
@@ -110,6 +113,9 @@ class SettingsRepository(private val context: Context) {
         val speedColor = stringPreferencesKey("speed_color")
         val dialColor = stringPreferencesKey("dial_color")
         val customDial = longPreferencesKey("custom_dial")
+        val bgVersion = longPreferencesKey("bg_version")
+        val bgDim = floatPreferencesKey("bg_dim")
+        val bgBlur = booleanPreferencesKey("bg_blur")
         val panelRpm = booleanPreferencesKey("panel_rpm")
     }
 
@@ -147,6 +153,9 @@ class SettingsRepository(private val context: Context) {
             p[K.speedColor] = s.speedColor.name
             p[K.dialColor] = s.dialColor.name
             p[K.customDial] = s.customDial
+            p[K.bgVersion] = s.bgVersion
+            p[K.bgDim] = s.bgDim
+            p[K.bgBlur] = s.bgBlur
             p[K.panelRpm] = s.panelRpm
         }
     }
@@ -181,6 +190,9 @@ class SettingsRepository(private val context: Context) {
         speedColor = enumOr(p[K.speedColor], d.speedColor),
         dialColor = enumOr(p[K.dialColor], d.dialColor),
         customDial = p[K.customDial] ?: d.customDial,
+        bgVersion = p[K.bgVersion] ?: d.bgVersion,
+        bgDim = p[K.bgDim] ?: d.bgDim,
+        bgBlur = p[K.bgBlur] ?: d.bgBlur,
         panelRpm = p[K.panelRpm] ?: d.panelRpm,
     )
 

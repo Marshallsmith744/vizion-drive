@@ -95,6 +95,9 @@ fun HomeRoot(container: AppContainer, activity: HomeActivity) {
     DriveTheme(settings) {
         val p = LocalPalette.current
         Box(Modifier.fillMaxSize().background(p.background)) {
+            if (settings.background == com.vizionconcepts.drive.settings.BackgroundStyle.IMAGE && settings.bgVersion > 0) {
+                PhotoBackground(settings.bgVersion, settings.bgDim, settings.bgBlur)
+            }
             Column(Modifier.fillMaxSize().padding(12.dp)) {
                 if (settings.dockPosition == DockPosition.TOP) Dock(ui, c) { overlay = it }
                 val cfg = LocalConfiguration.current
