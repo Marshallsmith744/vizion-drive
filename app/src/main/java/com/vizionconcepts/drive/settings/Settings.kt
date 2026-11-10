@@ -72,7 +72,7 @@ data class Settings(
     val dialColor: DialColor = DialColor.RED,
     val customDial: Long = 0xFF00F0FF,
     /** Colour of the digital dashes (ARGB). Defaults to motorsport yellow. */
-    val dashColor: Long = 0xFFFFE600,
+    val dashColor: Long = 0xFFFFD200,
     val bgVersion: Long = 0,
     val bgDim: Float = 0.35f,
     val bgBlur: Boolean = false,
