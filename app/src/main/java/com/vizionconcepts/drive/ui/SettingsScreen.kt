@@ -298,8 +298,8 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
         ColorWheel(s.dashColor, { argb -> update { it.copy(dashColor = argb) } })
     }
     val dashes = listOf(
-        WidgetType.RACE_DASH to "Motorsport display: big two-colour tacho with shift zone, speed and rpm readouts, " +
-            "and segment-meter tiles for coolant, fuel, outside temp and trip.",
+        WidgetType.RACE_DASH to "Motorsport display: big two-colour tacho with shift zone and warning lights, rpm/speed/time boxes, " +
+            "and eight bar-meter tiles – coolant, fuel, outside temp, trip, average speed, top speed, trip time and altitude.",
         WidgetType.TWIN_DASH to "Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face " +
             "with date. Digital clock, speed and now-playing in the centre; rainbow rpm and speed bars on the edges; " +
             "coolant, fuel and outside-temp mini gauges.",

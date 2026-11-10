@@ -93,7 +93,7 @@ private fun rememberNow(): Calendar {
 
 // ───────────────────────────── Race dash ─────────────────────────────
 
-private const val RACE_START = 120f   // 0 rpm at lower left; the open quarter at lower right holds the boxes
+private const val RACE_START = 90f    // 0 rpm at 6 o'clock; the open lower-right quarter holds the info boxes
 private const val RACE_SWEEP = 270f
 
 @Composable
@@ -104,10 +104,12 @@ fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
     val f by animateFloatAsState(DashMath.fraction(rpm, 0f, maxK * 1000f), tween(180), label = "race")
     var peak by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(rpm) { if (rpm > peak) peak = rpm }
+    val now = rememberNow()
     val accent = Color(ui.settings.dashColor)
     val shiftK = ui.settings.shiftRpm / 1000f
     val obd = ui.obd
     val gps = ui.gps
+    val mph = ui.settings.unit.name == "MPH"
     val speed = ui.speedShown
     val unit = ui.settings.unit.label
     val coolant = obd[ObdPid.COOLANT]
@@ -118,183 +120,182 @@ fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
         Triple("FUEL", fuel != null && fuel < 15f, Color(0xFFFFA000)),
         Triple("GPS", gps.hasFix, Color(0xFF1ED760)),
     )
+    val clock = "%02d:%02d".format(Locale.US, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
     Box(modifier.clip(RoundedCornerShape(22.dp))) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            drawRect(Brush.radialGradient(listOf(Color(0xFF1D1F23), Color(0xFF060607)), Offset(w / 2f, h * 0.45f), maxOf(w, h) * 0.75f))
-            val pad = h * 0.03f
-            val tileW = w * 0.19f
-            val tileH = (h - pad * 3) / 2f
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF1A1B1E), Color(0xFF0C0D0F))))
+            // Data tiles: four a side, running in behind the dial
+            val gap = h * 0.018f
+            val tileH = (h - gap * 5) / 4f
+            val tileW = w * 0.4f
             DashChannel.LEFT.forEachIndexed { i, ch ->
-                raceTile(Rect(Offset(pad, pad + i * (tileH + pad)), Size(tileW, tileH)), ch.text(obd, gps), ch.unit, ch.label, ch.fraction(obd, gps), accent, left = true)
+                hTile(Rect(Offset(gap, gap + i * (tileH + gap)), Size(tileW, tileH)), ch.text(obd, gps, mph), ch.unitShown(mph), ch.label, ch.fraction(obd, gps), accent, true, w)
             }
             DashChannel.RIGHT.forEachIndexed { i, ch ->
-                raceTile(Rect(Offset(w - pad - tileW, pad + i * (tileH + pad)), Size(tileW, tileH)), ch.text(obd, gps), ch.unit, ch.label, ch.fraction(obd, gps), accent, left = false)
+                hTile(Rect(Offset(w - gap - tileW, gap + i * (tileH + gap)), Size(tileW, tileH)), ch.text(obd, gps, mph), ch.unitShown(mph), ch.label, ch.fraction(obd, gps), accent, false, w)
             }
 
-            // ── Centre tacho ──
+            // ── Dial ──
             val c = Offset(w / 2f, h / 2f)
-            val r = min((w - 2 * tileW - 4 * pad) / 2f, h / 2f - pad * 0.6f) * 0.93f
+            val rb = h * 0.49f
+            val r = h * 0.425f
             val inner = r * 0.6f
             val band = r - inner
             val mid = (r + inner) / 2f
             val shiftF = (shiftK / maxK).coerceIn(0f, 1f)
-            val dark = Color(0xFF0A0B0C)
-            // Drop shadow and bevelled gunmetal bezel
-            drawCircle(Brush.radialGradient(0.8f to Color.Black.copy(alpha = 0.7f), 1f to Color.Transparent, center = Offset(c.x, c.y + r * 0.03f), radius = r * 1.2f), r * 1.2f, Offset(c.x, c.y + r * 0.03f))
+            val dark = Color(0xFF08090A)
+            drawCircle(Brush.radialGradient(0.85f to Color.Black.copy(alpha = 0.75f), 1f to Color.Transparent, center = c, radius = rb * 1.1f), rb * 1.1f, c)
             drawCircle(
-                Brush.verticalGradient(0f to Color(0xFF7C828B), 0.25f to Color(0xFF3B3F45), 0.6f to Color(0xFF17181B), 1f to Color(0xFF4A4F56),
-                    startY = c.y - r * 1.085f, endY = c.y + r * 1.085f),
-                r * 1.085f, c,
+                Brush.verticalGradient(0f to Color(0xFF6E737B), 0.3f to Color(0xFF3A3E44), 0.7f to Color(0xFF1F2124), 1f to Color(0xFF3C4046),
+                    startY = c.y - rb, endY = c.y + rb),
+                rb, c,
             )
-            drawCircle(Color.White.copy(alpha = 0.22f), r * 1.08f, c, style = Stroke(1.2f))
-            drawCircle(Color(0xFF08090A), r * 1.03f, c)
-            // Permanently coloured scale, shaded like a moulded part; red zone from the shift point.
+            drawCircle(Color(0xFF050506), rb, c, style = Stroke(2f))
+            drawCircle(Color.White.copy(alpha = 0.18f), rb - 2.5f, c, style = Stroke(1.2f))
+            val gl = rb * 0.97f
+            drawArc(Color.White.copy(alpha = 0.06f), 200f, 140f, false, Offset(c.x - gl, c.y - gl), Size(gl * 2, gl * 2), style = Stroke(rb * 0.04f))
+            drawCircle(Color(0xFF060607), r * 1.015f, c)
+            // Scale: start at the bottom, sweep round the left to finish at 3 o'clock
             fun shade(col: Color) = Brush.radialGradient(
-                0.6f to lerp(col, Color.Black, 0.45f), 0.72f to col, 0.9f to lerp(col, Color.White, 0.25f), 1f to lerp(col, Color.Black, 0.2f),
+                0.6f to lerp(col, Color.Black, 0.4f), 0.7f to col, 0.9f to lerp(col, Color.White, 0.3f), 1f to lerp(col, Color.Black, 0.15f),
                 center = c, radius = r,
             )
             val tl = Offset(c.x - mid, c.y - mid)
             val sz = Size(mid * 2, mid * 2)
             drawArc(shade(accent), RACE_START, RACE_SWEEP * shiftF, false, tl, sz, style = Stroke(band))
             drawArc(shade(RaceRed), RACE_START + RACE_SWEEP * shiftF, RACE_SWEEP * (1 - shiftF), false, tl, sz, style = Stroke(band))
-            val gr = r - band * 0.18f
+            val gr = r - band * 0.2f
             drawArc(
-                Brush.verticalGradient(0f to Color.White.copy(alpha = 0.28f), 0.5f to Color.Transparent, startY = c.y - r, endY = c.y + r),
-                RACE_START, RACE_SWEEP, false, Offset(c.x - gr, c.y - gr), Size(gr * 2, gr * 2), style = Stroke(band * 0.36f),
+                Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent, startY = c.y - r, endY = c.y + r),
+                RACE_START, RACE_SWEEP, false, Offset(c.x - gr, c.y - gr), Size(gr * 2, gr * 2), style = Stroke(band * 0.4f),
             )
+            for (k in 0..maxK * 4) {
+                val a = RACE_START + RACE_SWEEP * k / (maxK * 4)
+                val major = k % 4 == 0
+                drawLine(dark, at(c, inner, a), at(c, inner + band * (if (major) 0.3f else if (k % 2 == 0) 0.2f else 0.13f), a),
+                    strokeWidth = r * (if (major) 0.016f else 0.009f))
+            }
             for (k in 0..maxK) {
-                val a = RACE_START + RACE_SWEEP * k / maxK
-                drawLine(dark, at(c, inner, a), at(c, r, a), strokeWidth = r * 0.014f)
-                if (k < maxK) {
-                    for (q in 1..3) {
-                        val qa = a + RACE_SWEEP / maxK * q / 4f
-                        drawLine(dark.copy(alpha = 0.85f), at(c, r, qa), at(c, r - band * (if (q == 2) 0.26f else 0.14f), qa), strokeWidth = r * 0.008f)
-                    }
-                    val n = at(c, mid - band * 0.04f, a + RACE_SWEEP / maxK / 2f)
-                    label("$k", n.x, n.y, band * 0.52f, Color(0xFF0B0B0C))
-                }
+                val pos = when (k) { 0 -> 0.22f; maxK -> maxK - 0.22f; else -> k.toFloat() }
+                val n = at(c, mid + band * 0.06f, RACE_START + RACE_SWEEP * pos / maxK)
+                label("$k", n.x, n.y, band * 0.62f, Color(0xFF0A0A0B))
             }
-            // Separator, progress ring, face
+            // Face
+            val fc = inner - r * 0.01f
             drawCircle(Color(0xFF050506), inner, c)
-            drawCircle(accent.copy(alpha = 0.9f), inner - r * 0.012f, c, style = Stroke(r * 0.006f))
-            val pr = inner - r * 0.045f
-            val prTl = Offset(c.x - pr, c.y - pr)
-            drawArc(Color(0xFF1C1E22), RACE_START, RACE_SWEEP, false, prTl, Size(pr * 2, pr * 2), style = Stroke(r * 0.022f))
-            drawArc(if (f > shiftF) RaceRed else accent, RACE_START, RACE_SWEEP * f, false, prTl, Size(pr * 2, pr * 2), style = Stroke(r * 0.022f, cap = StrokeCap.Round))
-            val fc = inner - r * 0.075f
-            drawCircle(Brush.radialGradient(listOf(Color(0xFF1B1D21), Color(0xFF030304)), Offset(c.x, c.y - fc * 0.2f), fc * 1.2f), fc, c)
-            for (k in 1..3) drawCircle(Color.White.copy(alpha = 0.035f), fc * (0.35f + 0.18f * k), c, style = Stroke(1f))
-            label("RPM ×1000", c.x, c.y - fc * 0.66f, fc * 0.085f, Color(0xFF7D838B), face = condensedMedium, spacing = 0.2f)
+            drawCircle(Brush.radialGradient(listOf(Color(0xFF202226), Color(0xFF040405)), Offset(c.x, c.y - fc * 0.16f), fc * 1.2f), fc, c)
+            drawCircle(accent, fc * 0.93f, c, style = Stroke(r * 0.016f))
+            drawCircle(Color(0xFF2A2D32), fc * 0.78f, c, style = Stroke(r * 0.008f))
+            label("RPM × 1000", c.x, c.y - fc * 0.5f, fc * 0.085f, Color(0xFF8A9099), face = condensedMedium, spacing = 0.2f)
             // Warning lights — only things the head unit actually knows
-            val lw = fc * 0.3f
-            val lh = fc * 0.13f
+            val lw = fc * 0.27f
+            val lh = fc * 0.12f
             lights.forEachIndexed { i, (name, on, col) ->
-                val lx = c.x + (i - 1.5f) * (lw + fc * 0.035f) - lw / 2f
-                val ly = c.y - fc * 0.5f
-                if (on) drawRoundRect(col.copy(alpha = 0.35f), Offset(lx - 4f, ly - 4f), Size(lw + 8f, lh + 8f), CornerRadius(lh))
-                drawRoundRect(if (on) col else Color(0xFF0E0F11), Offset(lx, ly), Size(lw, lh), CornerRadius(lh / 2f))
-                drawRoundRect(if (on) col else Color(0xFF2E3135), Offset(lx, ly), Size(lw, lh), CornerRadius(lh / 2f), style = Stroke(1.2f))
-                label(name, lx + lw / 2f, ly + lh / 2f, lh * 0.52f, if (on) Color(0xFF0B0B0C) else Color(0xFF4A4F56), spacing = 0.08f)
+                val lx = c.x - fc * 0.66f + (i % 2) * (lw + fc * 0.04f)
+                val ly = c.y + fc * 0.2f + (i / 2) * (lh + fc * 0.05f)
+                drawRoundRect(if (on) col else Color(0xFF121315), Offset(lx, ly), Size(lw, lh), CornerRadius(lh * 0.3f))
+                drawRoundRect(if (on) col else Color(0xFF33363B), Offset(lx, ly), Size(lw, lh), CornerRadius(lh * 0.3f), style = Stroke(1.2f))
+                label(name, lx + lw / 2f, ly + lh / 2f, lh * 0.55f, if (on) Color(0xFF0A0A0B) else Color(0xFF5A5F66), spacing = 0.08f)
             }
-            label(if (rpmRaw != null) "${rpm.toInt()}" else "----", c.x, c.y + fc * 0.36f, fc * 0.2f, Color(0xFFF2F3F5), spacing = 0.05f)
-            label("RPM", c.x, c.y + fc * 0.52f, fc * 0.075f, Color(0xFF7D838B), face = condensedMedium, spacing = 0.2f)
+            // Info panel in the open lower-right quarter: rpm, speed, time
+            val px = c.x + r * 0.04f
+            val py = c.y + r * 0.08f
+            val pw = rb * 0.99f - r * 0.04f
+            val ph = h - gap - py
+            val m = ph * 0.05f
+            drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF2E3135), Color(0xFF17181B)), py, py + ph), Offset(px, py), Size(pw, ph), CornerRadius(ph * 0.05f))
+            drawRoundRect(Color(0xFF060607), Offset(px, py), Size(pw, ph), CornerRadius(ph * 0.05f), style = Stroke(2.5f))
+            val bh = (ph - 3 * m) * 0.55f
+            val bw1 = (pw - 3 * m) * 0.34f
+            val bw2 = pw - 3 * m - bw1
+            infoBox(Rect(Offset(px + m, py + m), Size(bw1, bh)), if (rpmRaw != null) String.format(Locale.US, "%.1f", rpm / 1000f) else "--", "RPM ×1000", bh * 0.42f)
+            infoBox(Rect(Offset(px + 2 * m + bw1, py + m), Size(bw2, bh)), "$speed", "SPEED ${unit.uppercase(Locale.US)}", bh * 0.56f)
+            val th2 = ph - 3 * m - bh
+            infoBox(Rect(Offset(px + m, py + 2 * m + bh), Size(pw - 2 * m, th2)), clock, "TIME", th2 * 0.48f)
             // Peak-rpm marker
             if (peak > 0f) {
                 val pa = RACE_START + RACE_SWEEP * DashMath.fraction(peak, 0f, maxK * 1000f)
                 val tip = at(c, r, pa)
-                val b1 = at(c, r * 1.075f, pa - 2f)
-                val b2 = at(c, r * 1.075f, pa + 2f)
+                val b1 = at(c, r * 1.08f, pa - 2f)
+                val b2 = at(c, r * 1.08f, pa + 2f)
                 val tri = Path().apply { moveTo(tip.x, tip.y); lineTo(b1.x, b1.y); lineTo(b2.x, b2.y); close() }
                 drawPath(tri, DashWhite)
                 drawPath(tri, Color.Black, style = Stroke(1f))
             }
-            // Tapered needle with glow and highlight
+            // Tapered red needle
             val na = RACE_START + RACE_SWEEP * f
-            val tipW = Math.toDegrees(kotlin.math.atan((r * 0.006f / (r * 0.97f)).toDouble())).toFloat()
+            val tipW = Math.toDegrees(kotlin.math.atan((0.007f / 0.9f).toDouble())).toFloat()
             val needle = Path().apply {
-                val p1 = at(c, r * 0.97f, na - tipW); moveTo(p1.x, p1.y)
-                val p2 = at(c, r * 0.97f, na + tipW); lineTo(p2.x, p2.y)
-                val p3 = at(c, r * 0.03f, na + 90f); lineTo(p3.x, p3.y)
-                val p4 = at(c, -r * 0.16f, na + 4f); lineTo(p4.x, p4.y)
-                val p5 = at(c, -r * 0.16f, na - 4f); lineTo(p5.x, p5.y)
-                val p6 = at(c, r * 0.03f, na - 90f); lineTo(p6.x, p6.y)
+                val p1 = at(c, r * 0.9f, na - tipW); moveTo(p1.x, p1.y)
+                val p2 = at(c, r * 0.9f, na + tipW); lineTo(p2.x, p2.y)
+                val p3 = at(c, r * 0.025f, na + 90f); lineTo(p3.x, p3.y)
+                val p4 = at(c, -r * 0.08f, na + 6f); lineTo(p4.x, p4.y)
+                val p5 = at(c, -r * 0.08f, na - 6f); lineTo(p5.x, p5.y)
+                val p6 = at(c, r * 0.025f, na - 90f); lineTo(p6.x, p6.y)
                 close()
             }
-            drawPath(needle, RaceRed.copy(alpha = 0.3f), style = Stroke(r * 0.03f))
+            drawPath(needle, RaceRed.copy(alpha = 0.3f), style = Stroke(r * 0.025f))
             drawPath(needle, RaceRed)
-            drawLine(Color(0xFFFF8A8A), at(c, r * 0.05f, na), at(c, r * 0.93f, na), strokeWidth = r * 0.006f, cap = StrokeCap.Round)
-            drawCircle(Brush.verticalGradient(listOf(Color(0xFFD9DCE0), Color(0xFF5A5F66), Color(0xFF2A2D32)), c.y - r * 0.085f, c.y + r * 0.085f), r * 0.085f, c)
-            drawCircle(Color(0xFF111215), r * 0.06f, c)
-            drawCircle(RaceRed, r * 0.022f, c)
-
-            // Large digital speed: brushed frame with an LCD inset
-            val sb = Rect(Offset(c.x + r * 0.04f, c.y + r * 0.6f), Size(r * 1.0f, r * 0.42f))
-            val m = sb.height * 0.07f
-            drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF5E6269), Color(0xFF2E3135), Color(0xFF1A1B1E)), sb.top, sb.bottom), sb.topLeft, sb.size, CornerRadius(sb.height * 0.08f))
-            drawRoundRect(Color(0xFF050506), sb.topLeft, sb.size, CornerRadius(sb.height * 0.08f), style = Stroke(2f))
-            drawLine(Color.White.copy(alpha = 0.35f), Offset(sb.left + sb.height * 0.08f, sb.top + 1.5f), Offset(sb.right - sb.height * 0.08f, sb.top + 1.5f), strokeWidth = 1.2f)
-            val lcd = Rect(sb.left + m, sb.top + m, sb.right - m, sb.bottom - m)
-            drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF15171A), Color(0xFF050506)), lcd.top, lcd.bottom), lcd.topLeft, lcd.size, CornerRadius(sb.height * 0.05f))
-            drawRoundRect(Color.Black, lcd.topLeft, lcd.size, CornerRadius(sb.height * 0.05f), style = Stroke(1.5f))
-            label("SPEED", lcd.left + sb.height * 0.12f, sb.top + sb.height * 0.36f, sb.height * 0.13f, Color(0xFF7D838B), Paint.Align.LEFT, condensedMedium, 0.2f)
-            label(unit.uppercase(Locale.US), lcd.left + sb.height * 0.12f, sb.top + sb.height * 0.62f, sb.height * 0.17f, accent, Paint.Align.LEFT, spacing = 0.08f)
-            label("$speed", lcd.right - sb.height * 0.1f, sb.center.y, sb.height * 0.74f, Color(0xFFF7F8FA), Paint.Align.RIGHT)
+            drawCircle(RaceRed, r * 0.055f, c)
+            drawCircle(Color(0xFF3A0507), r * 0.022f, c)
         }
     }
 }
 
 private val RaceRed = Color(0xFFE8141B)
 
-private fun DrawScope.raceTile(rect: Rect, value: String, unit: String, name: String, fraction: Float, accent: Color, left: Boolean) {
-    val cr = CornerRadius(rect.height * 0.035f)
+/** One data tile: stacked bar meter on the outer edge, big value in the dash colour, label under it. */
+private fun DrawScope.hTile(rect: Rect, value: String, unit: String, name: String, fraction: Float, accent: Color, left: Boolean, screenW: Float) {
+    val cr = CornerRadius(rect.height * 0.06f)
     drawRoundRect(
-        Brush.verticalGradient(0f to Color(0xFF6A6E75), 0.47f to Color(0xFF3A3D42), 0.5f to Color(0xFF25272B), 1f to Color(0xFF16171A),
+        Brush.verticalGradient(0f to Color(0xFF55595F), 0.45f to Color(0xFF34373C), 0.55f to Color(0xFF26282C), 1f to Color(0xFF1C1D20),
             startY = rect.top, endY = rect.bottom),
         rect.topLeft, rect.size, cr,
     )
-    drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.02f)), rect.top, rect.top + rect.height * 0.48f),
-        Offset(rect.left + 1.5f, rect.top + 1.5f), Size(rect.width - 3f, rect.height * 0.48f), cr)
-    drawRoundRect(Color(0xFF050506), rect.topLeft, rect.size, cr, style = Stroke(2f))
-    drawLine(Color.White.copy(alpha = 0.35f), Offset(rect.left + rect.height * 0.03f, rect.top + 1.5f), Offset(rect.right - rect.height * 0.03f, rect.top + 1.5f), strokeWidth = 1.2f)
-    // Recessed segment meter on the outside edge
-    val segs = 12
-    val slotW = rect.width * 0.085f
-    val gap = rect.height * 0.018f
-    val inset = rect.height * 0.05f
-    val sx = if (left) rect.left + inset else rect.right - inset - slotW
-    val segH = (rect.height - 2 * inset - gap * (segs + 1)) / segs
+    drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.01f)), rect.top, rect.top + rect.height * 0.45f),
+        Offset(rect.left + 2f, rect.top + 2f), Size(rect.width - 4f, rect.height * 0.45f), cr)
+    drawRoundRect(Color(0xFF060607), rect.topLeft, rect.size, cr, style = Stroke(2.5f))
+    val segs = 9
+    val slotW = screenW * 0.032f
+    val inset = rect.height * 0.1f
+    val sx = if (left) rect.left + rect.height * 0.07f else rect.right - rect.height * 0.07f - slotW
+    val gap = rect.height * 0.035f
+    val segH = (rect.height - 2 * inset - gap * (segs - 1)) / segs
     val lit = DashMath.segmentsLit(fraction, segs)
-    drawRoundRect(Color(0xFF08090A), Offset(sx, rect.top + inset), Size(slotW, rect.height - 2 * inset), CornerRadius(3f))
-    val segBrush = Brush.horizontalGradient(
-        if (left) listOf(lerp(accent, Color.White, 0.25f), accent) else listOf(accent, lerp(accent, Color.White, 0.25f)),
-        sx + slotW * 0.15f, sx + slotW * 0.85f,
-    )
     for (i in 0 until segs) {
-        val y = rect.bottom - inset - gap - (i + 1) * segH - i * gap
-        if (i < lit) drawRoundRect(segBrush, Offset(sx + slotW * 0.15f, y), Size(slotW * 0.7f, segH), CornerRadius(1.5f))
-        else drawRoundRect(Color(0xFF222428), Offset(sx + slotW * 0.15f, y), Size(slotW * 0.7f, segH), CornerRadius(1.5f))
+        val y = rect.bottom - inset - (i + 1) * segH - i * gap
+        drawRect(if (i < lit) accent else Color(0xFF3A3D42), Offset(sx, y), Size(slotW, segH))
     }
-    // Value + unit, label underneath
-    val vs = min(rect.height * 0.3f, rect.width * 0.3f)
-    val textX = if (left) sx + slotW + rect.width * 0.07f else sx - rect.width * 0.07f
-    val vy = rect.top + rect.height * 0.42f
-    textPaint.typeface = condensedBold
+    val vs = rect.height * 0.37f
+    val tx = if (left) sx + slotW + screenW * 0.012f else sx - screenW * 0.012f
+    val vy = rect.top + rect.height * 0.44f
+    val u = unit.uppercase(Locale.US)
     textPaint.letterSpacing = 0f
+    textPaint.typeface = condensedBold
     textPaint.textSize = vs
     val vw = textPaint.measureText(value)
     textPaint.textSize = vs * 0.42f
-    val uw = textPaint.measureText(unit)
+    val uw = if (u.isEmpty()) 0f else textPaint.measureText(u) + vs * 0.03f
     if (left) {
-        label(value, textX, vy, vs, Color(0xFFF7F8FA), Paint.Align.LEFT)
-        label(unit, textX + vw + vs * 0.05f, vy + vs * 0.14f, vs * 0.42f, Color(0xFFC9CDD2), Paint.Align.LEFT)
+        label(value, tx, vy, vs, accent, Paint.Align.LEFT)
+        if (u.isNotEmpty()) label(u, tx + vw + vs * 0.03f, vy + vs * 0.15f, vs * 0.42f, accent, Paint.Align.LEFT)
     } else {
-        label(unit, textX, vy + vs * 0.14f, vs * 0.42f, Color(0xFFC9CDD2), Paint.Align.RIGHT)
-        label(value, textX - uw - vs * 0.05f, vy, vs, Color(0xFFF7F8FA), Paint.Align.RIGHT)
+        if (u.isNotEmpty()) label(u, tx, vy + vs * 0.15f, vs * 0.42f, accent, Paint.Align.RIGHT)
+        label(value, tx - uw, vy, vs, accent, Paint.Align.RIGHT)
     }
-    label(name.uppercase(Locale.US), textX, rect.top + rect.height * 0.66f, vs * 0.24f, Color(0xFF9AA0A8),
-        if (left) Paint.Align.LEFT else Paint.Align.RIGHT, condensedMedium, 0.12f)
+    label(name.uppercase(Locale.US), tx, rect.top + rect.height * 0.78f, rect.height * 0.095f, Color(0xFFE8EAED),
+        if (left) Paint.Align.LEFT else Paint.Align.RIGHT, condensedMedium, 0.05f)
+}
+
+private fun DrawScope.infoBox(rect: Rect, value: String, name: String, valueSize: Float) {
+    val cr = CornerRadius(rect.height * 0.04f)
+    drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF6A6E75), Color(0xFF43464C), Color(0xFF2C2E32)), rect.top, rect.bottom), rect.topLeft, rect.size, cr)
+    drawRoundRect(Color(0xFF060607), rect.topLeft, rect.size, cr, style = Stroke(2f))
+    drawLine(Color.White.copy(alpha = 0.25f), Offset(rect.left + 3f, rect.top + 1.5f), Offset(rect.right - 3f, rect.top + 1.5f), strokeWidth = 1f)
+    label(value, rect.center.x, rect.top + rect.height * 0.42f, valueSize, Color(0xFFF4F6F8))
+    label(name, rect.center.x, rect.top + rect.height * 0.82f, rect.height * 0.12f, Color(0xFFE8EAED), face = condensedMedium, spacing = 0.05f)
 }
 
 // ───────────────────────────── Twin-dial dash ─────────────────────────────

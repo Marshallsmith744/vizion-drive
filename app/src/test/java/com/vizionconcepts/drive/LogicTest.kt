@@ -262,14 +262,20 @@ class DigitalDashTest {
         ))
         assertEquals("90", DashChannel.COOLANT.text(snap))
         assertEquals("21", DashChannel.OUTSIDE.text(snap))
-        assertEquals("12.3", DashChannel.TRIP.text(snap, com.vizionconcepts.drive.vehicle.GpsState(tripKm = 12.34)))
-        assertEquals(2, DashChannel.LEFT.size); assertEquals(2, DashChannel.RIGHT.size)
+        val g = com.vizionconcepts.drive.vehicle.GpsState(tripKm = 12.34, tripMovingMs = 95 * 60_000L, tripMaxMps = 30f)
+        assertEquals("12.3", DashChannel.TRIP.text(snap, g))
+        assertEquals("7.7", DashChannel.TRIP.text(snap, g, mph = true))
+        assertEquals("1:35", DashChannel.TRIP_TIME.text(snap, g))
+        assertEquals("", DashChannel.TRIP_TIME.unitShown(false))
+        assertEquals("108", DashChannel.TOP_SPEED.text(snap, g))
+        assertEquals("mph", DashChannel.TOP_SPEED.unitShown(true))
+        assertEquals(4, DashChannel.LEFT.size); assertEquals(4, DashChannel.RIGHT.size)
     }
 
     @Test fun onlyHeadUnitReadableValues() {
         // Engine-computer-only values must not appear on the dashes.
         val names = DashChannel.entries.map { it.name }.toSet()
-        assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP"), names)
+        assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP", "AVG_SPEED", "TOP_SPEED", "TRIP_TIME", "ALTITUDE"), names)
     }
 
     @Test fun fullPageDashUsesWholeWidth() {

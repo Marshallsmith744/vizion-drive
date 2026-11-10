@@ -71,8 +71,8 @@ data class Settings(
     val speedStyle: GaugeStyle = GaugeStyle.SPORT_GLOW,
     val dialColor: DialColor = DialColor.RED,
     val customDial: Long = 0xFF00F0FF,
-    /** Colour of the digital dashes (ARGB). Defaults to motorsport yellow. */
-    val dashColor: Long = 0xFFFFD200,
+    /** Colour of the digital dashes (ARGB). Defaults to bright blue. */
+    val dashColor: Long = 0xFF0A8CFF,
     val bgVersion: Long = 0,
     val bgDim: Float = 0.35f,
     val bgBlur: Boolean = false,
