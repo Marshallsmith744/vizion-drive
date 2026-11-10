@@ -45,7 +45,7 @@ import kotlin.math.sin
 
 /*
  * Twin-gauge cluster: tachometer left, speedometer right (chrome rings, glowing needles),
- * four bar tiles in the middle (coolant, oil temp, voltage, fuel), a header with time / title /
+ * four bar tiles in the middle (coolant, oil temp, voltage, fuel), a header with time and
  * outside temp and an odometer / trip strip along the bottom.
  * Everything is laid out on a 1774 × 887 design grid and scaled to the widget, so it keeps its shape
  * at any size. Every accent follows the cluster colour (Settings → Digital Dash).
@@ -99,7 +99,6 @@ fun ClusterDash(ui: UiState, modifier: Modifier = Modifier) {
     val speedMax = if (mph) 180 else 280
     val speedA by animateFloatAsState(speed.toFloat().coerceIn(0f, speedMax.toFloat()), tween(220), label = "clSpeed")
     val acc = Color(ui.settings.clusterColor)
-    val title = ui.settings.clusterTitle
     val outside = obd[ObdPid.AMBIENT]?.toInt() ?: if (ui.weather.loaded) ui.weather.tempC.toInt() else null
     val coolant = obd[ObdPid.COOLANT]
     val oil = obd[ObdPid.OIL_TEMP]
@@ -151,7 +150,6 @@ fun ClusterDash(ui: UiState, modifier: Modifier = Modifier) {
             drawPath(hdr, Brush.verticalGradient(listOf(Color(0xFF151517), Color(0xFF060607)), Y(26f), Y(142f)))
             glowPath(hdr, acc, K(2.2f))
             text(time, X(630f), Y(68f), K(44f), Color(0xFFF2F2F4), fonts.w500)
-            text(title, X(890f), Y(80f), K(62f), White, fonts.w800)
             text(outside?.let { "$it°C" } ?: "--°C", X(1165f), Y(68f), K(44f), Color(0xFFF2F2F4), fonts.w500)
 
             // ── Bottom glow and odometer strip ──
@@ -255,18 +253,20 @@ fun ClusterDash(ui: UiState, modifier: Modifier = Modifier) {
                     val p = pt(c, K(230f), ang(v.toFloat()))
                     text("$v", p.x, p.y, K(39f), White, fonts.w700)
                 }
-                val panel = Path().apply {
-                    moveTo(c.x - K(130f), c.y + K(178f)); lineTo(c.x - K(130f), c.y + K(40f))
-                    quadraticBezierTo(c.x - K(130f), c.y + K(15f), c.x - K(105f), c.y + K(15f)); lineTo(c.x + K(125f), c.y + K(15f))
-                    quadraticBezierTo(c.x + K(150f), c.y + K(15f), c.x + K(150f), c.y + K(40f)); lineTo(c.x + K(150f), c.y + K(178f))
-                }
-                drawPath(panel, Color(0xFF08080A))
-                drawPath(panel, Color(0xFF2C2D31), style = Stroke(K(2f)))
-                text("$speed", c.x + K(5f), c.y + K(80f), K(128f), Color.White, fonts.w800)
-                text(if (mph) "mph" else "km/h", c.x + K(2f), c.y + K(152f), K(34f), Color(0xFFEDEDF0), fonts.w500)
                 drawCircle(Color(0xFF080809), K(55f), c)
                 drawCircle(Color(0xFF2C2D31), K(55f), c, style = Stroke(K(2f)))
                 needle(c, ang(speedA), K(50f), K(275f))
+                // Floating digital speed box, drawn over the needle and clear of the hub
+                val bTl = Offset(c.x - K(128f), c.y + K(64f))
+                val bSz = Size(K(210f), K(124f))
+                val bCr = CornerRadius(K(16f))
+                drawRoundRect(Color.Black.copy(alpha = 0.55f), Offset(bTl.x + K(4f), bTl.y + K(8f)), bSz, bCr)
+                drawRoundRect(acc.copy(alpha = 0.18f), Offset(bTl.x - K(4f), bTl.y - K(4f)), Size(bSz.width + K(8f), bSz.height + K(8f)), CornerRadius(K(20f)))
+                drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF17171A), Color(0xFF060607)), bTl.y, bTl.y + bSz.height), bTl, bSz, bCr)
+                drawRoundRect(acc.copy(alpha = 0.8f), bTl, bSz, bCr, style = Stroke(K(2f)))
+                drawLine(Color.White.copy(alpha = 0.1f), Offset(bTl.x + K(16f), bTl.y + K(2f)), Offset(bTl.x + bSz.width - K(16f), bTl.y + K(2f)), strokeWidth = K(2f))
+                text("$speed", bTl.x + bSz.width / 2f + K(3f), bTl.y + K(48f), K(88f), Color.White, fonts.w800)
+                text(if (mph) "mph" else "km/h", bTl.x + bSz.width / 2f, bTl.y + K(104f), K(26f), Color(0xFFEDEDF0), fonts.w500)
             }
 
             // ── Centre tiles ──

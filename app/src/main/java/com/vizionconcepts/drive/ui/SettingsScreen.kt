@@ -324,17 +324,6 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
         Body("Needles, red zone, bars and glow lines. Pick a preset or use the wheel for any colour.")
         ColourPicker(s.clusterColor) { argb -> update { it.copy(clusterColor = argb) } }
     }
-    Section("Cluster title") {
-        var text by remember(s.clusterTitle) { mutableStateOf(s.clusterTitle) }
-        OutlinedTextField(
-            text, { text = it.take(12); update { st -> st.copy(clusterTitle = it.take(12)) } },
-            singleLine = true, modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = p.text, unfocusedTextColor = p.text,
-                focusedBorderColor = p.accent, unfocusedBorderColor = p.dim,
-            ),
-        )
-    }
     Section("Twin-dial dash") {
         Body("Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face with date. Digital clock, speed and " +
             "now-playing in the centre; rainbow rpm and speed bars on the edges; coolant, fuel and outside-temp mini gauges.")
