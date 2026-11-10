@@ -47,15 +47,16 @@ import kotlinx.coroutines.launch
 fun DashboardEditor(ui: UiState, c: AppContainer, onClose: () -> Unit) {
     val p = LocalPalette.current
     val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val layout = ui.settings.layout
-    var page by remember { mutableIntStateOf(0) }
+    var page by remember { mutableIntStateOf(c.currentPage.value) }
     val current = page.coerceIn(0, layout.pages.lastIndex.coerceAtLeast(0))
     fun save(l: DashboardLayout) = scope.launch { c.settings.update { it.copy(layout = l) } }
 
     Box(Modifier.fillMaxSize().background(p.background).padding(24.dp)) {
         Column(Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Edit dashboard", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text("Widgets, pages & presets", color = p.text, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 RoundIcon(Icons.Default.Close, onClick = onClose)
             }
@@ -89,7 +90,7 @@ fun DashboardEditor(ui: UiState, c: AppContainer, onClose: () -> Unit) {
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 // Widgets on this page
                 Card(Modifier.weight(1f).fillMaxHeight()) {
-                    val widgets = layout.pages.getOrElse(current) { emptyList() }
+                    val widgets = layout.types(current)
                     if (widgets.isEmpty()) Text("No widgets yet – add some from the right", color = p.dim)
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         itemsIndexed(widgets) { i, w ->
@@ -110,7 +111,10 @@ fun DashboardEditor(ui: UiState, c: AppContainer, onClose: () -> Unit) {
                         items(WidgetType.entries.toList()) { w ->
                             Row(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                                    .clickable { if (layout.pages.isEmpty()) save(DashboardLayout(listOf(listOf(w)))) else save(layout.addWidget(current, w)) }
+                                    .clickable {
+                                        if (layout.pages.isEmpty()) save(DashboardLayout.of(listOf(w))) else save(layout.addWidget(current, w))
+                                        android.widget.Toast.makeText(ctx, "${w.title} added – drag it into place", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                     .padding(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {

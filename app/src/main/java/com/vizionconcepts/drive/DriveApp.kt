@@ -28,6 +28,12 @@ class AppContainer(app: Application) {
     /** True once the autostart app has been handled since this boot. */
     var autostartDone = false
 
+    /** True while the home screen is in move/resize mode. */
+    val editLayout = MutableStateFlow(false)
+
+    /** Page currently shown on the home screen (the editor adds widgets here). */
+    val currentPage = MutableStateFlow(0)
+
     /** Non-null while the autostart countdown banner is showing. */
     val autostart = MutableStateFlow<AutostartCountdown?>(null)
 }

@@ -70,7 +70,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Overlay { NONE, DRAWER, SETTINGS, SETTINGS_OBD, SETTINGS_AMBIENT, EDITOR, PERFORMANCE }
+enum class Overlay { NONE, DRAWER, SETTINGS, SETTINGS_OBD, SETTINGS_AMBIENT, EDITOR, PERFORMANCE, EDIT_LAYOUT }
 
 @Composable
 fun HomeRoot(container: AppContainer, activity: HomeActivity) {
@@ -88,7 +88,7 @@ fun HomeRoot(container: AppContainer, activity: HomeActivity) {
 
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     DisposableEffect(activity) {
-        activity.onHomePressed = { overlay = Overlay.NONE }
+        activity.onHomePressed = { overlay = Overlay.NONE; c.editLayout.value = false }
         onDispose { activity.onHomePressed = null }
     }
 
@@ -109,7 +109,7 @@ fun HomeRoot(container: AppContainer, activity: HomeActivity) {
                             VehiclePanelPortrait(ui, Modifier.fillMaxWidth().weight(0.3f)) { overlay = it }
                             Spacer(Modifier.height(12.dp))
                         }
-                        Pages(ui, c, Modifier.weight(0.7f).fillMaxWidth()) { overlay = it }
+                        FreePages(ui, c, Modifier.weight(0.7f).fillMaxWidth()) { overlay = it }
                     }
                 } else {
                     Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
@@ -117,7 +117,7 @@ fun HomeRoot(container: AppContainer, activity: HomeActivity) {
                             VehiclePanel(ui, Modifier.weight(0.36f).fillMaxHeight()) { overlay = it }
                             Spacer(Modifier.width(12.dp))
                         }
-                        Pages(ui, c, Modifier.weight(0.64f).fillMaxHeight()) { overlay = it }
+                        FreePages(ui, c, Modifier.weight(0.64f).fillMaxHeight()) { overlay = it }
                     }
                 }
                 if (settings.dockPosition == DockPosition.BOTTOM) Dock(ui, c) { overlay = it }
@@ -143,6 +143,7 @@ fun HomeRoot(container: AppContainer, activity: HomeActivity) {
                 Overlay.SETTINGS_AMBIENT -> SettingsScreen(ui, c, activity, SettingsTab.AMBIENT) { overlay = Overlay.NONE }
                 Overlay.EDITOR -> DashboardEditor(ui, c) { overlay = Overlay.NONE }
                 Overlay.PERFORMANCE -> PerformanceView(ui) { overlay = Overlay.NONE }
+                Overlay.EDIT_LAYOUT -> LaunchedEffect(Unit) { c.editLayout.value = true; overlay = Overlay.NONE }
             }
 
             Screensaver(settings, c)
@@ -201,7 +202,7 @@ private fun VehiclePanel(ui: UiState, modifier: Modifier, open: (Overlay) -> Uni
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("Performance") { open(Overlay.PERFORMANCE) }
-                Chip("Edit dash") { open(Overlay.EDITOR) }
+                Chip("Edit dash") { open(Overlay.EDIT_LAYOUT) }
             }
         }
     }
@@ -254,7 +255,7 @@ private fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overlay
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Performance") { open(Overlay.PERFORMANCE) }
-                    Chip("Edit dash") { open(Overlay.EDITOR) }
+                    Chip("Edit dash") { open(Overlay.EDIT_LAYOUT) }
                 }
             }
         }
@@ -281,43 +282,6 @@ private fun MiniStat(label: String, value: String, warn: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = if (warn) p.danger else p.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Text(label, color = p.dim, fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun Pages(ui: UiState, c: AppContainer, modifier: Modifier, open: (Overlay) -> Unit) {
-    val p = LocalPalette.current
-    val pages = ui.settings.layout.pages
-    val pager = rememberPagerState { pages.size.coerceAtLeast(1) }
-    Column(modifier) {
-        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth()) { index ->
-            val widgets = pages.getOrElse(index) { emptyList() }
-            if (widgets.isEmpty()) {
-                Card(Modifier.fillMaxSize().clickable { open(Overlay.EDITOR) }) {
-                    Text("Empty page – tap to add widgets", color = p.dim, modifier = Modifier.align(Alignment.Center))
-                }
-            } else {
-                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    for (row in DashboardLayout.rows(widgets)) {
-                        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            for (w in row) WidgetView(w, ui, c, open, Modifier.weight(w.span.toFloat()).fillMaxHeight())
-                            val used = row.sumOf { it.span }
-                            if (used < 2) Spacer(Modifier.weight((2 - used).toFloat()))
-                        }
-                    }
-                }
-            }
-        }
-        if (pages.size > 1) {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
-                repeat(pages.size) { i ->
-                    Box(
-                        Modifier.padding(horizontal = 4.dp).size(if (i == pager.currentPage) 10.dp else 7.dp).clip(CircleShape)
-                            .background(if (i == pager.currentPage) p.accent else p.dim.copy(alpha = 0.4f))
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -361,7 +325,7 @@ private fun Dock(ui: UiState, c: AppContainer, open: (Overlay) -> Unit) {
         }
         DockButton(Icons.Default.Mic, "Voice") { c.car.voiceAssistant() }
         DockButton(Icons.Default.Speed, "Performance") { open(Overlay.PERFORMANCE) }
-        DockButton(Icons.Default.Dashboard, "Edit dashboard") { open(Overlay.EDITOR) }
+        DockButton(Icons.Default.Dashboard, "Edit dashboard") { c.editLayout.value = !c.editLayout.value }
         DockButton(Icons.Default.Settings, "Settings") { open(Overlay.SETTINGS) }
         Spacer(Modifier.width(12.dp))
         Text(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now)), color = p.text, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)

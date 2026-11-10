@@ -2,6 +2,7 @@ package com.vizionconcepts.drive
 
 import com.vizionconcepts.drive.ambient.ElkBledom
 import com.vizionconcepts.drive.dashboard.DashboardLayout
+import com.vizionconcepts.drive.dashboard.Placement
 import com.vizionconcepts.drive.dashboard.Presets
 import com.vizionconcepts.drive.dashboard.WidgetType
 import com.vizionconcepts.drive.obd.ElmParser
@@ -109,27 +110,59 @@ class AmbientTest {
 
 class DashboardTest {
     @Test fun roundTrip() {
-        for (p in Presets.entries) assertEquals(p.layout, DashboardLayout.decode(p.layout.encode()))
+        for (p in Presets.entries) {
+            val back = DashboardLayout.decode(p.layout.encode())
+            assertEquals(p.layout.pages.size, back.pages.size)
+            p.layout.pages.zip(back.pages).forEach { (a, b) ->
+                assertEquals(a.map { it.type }, b.map { it.type })
+                a.zip(b).forEach { (x, y) -> assertEquals(x.x, y.x, 0.001f); assertEquals(x.y, y.y, 0.001f); assertEquals(x.w, y.w, 0.001f) }
+            }
+        }
     }
 
-    @Test fun unknownWidgetsAreDropped() {
+    @Test fun oldListFormatIsMigrated() {
         val l = DashboardLayout.decode("SPEED_ARC,NOT_A_WIDGET,CLOCK|MEDIA")
-        assertEquals(listOf(listOf(WidgetType.SPEED_ARC, WidgetType.CLOCK), listOf(WidgetType.MEDIA)), l.pages)
+        assertEquals(listOf(WidgetType.SPEED_ARC, WidgetType.CLOCK), l.types(0))
+        assertEquals(listOf(WidgetType.MEDIA), l.types(1))
+        // flowed side by side on the first row
+        assertEquals(0f, l.pages[0][0].x, 0f)
+        assertTrue(l.pages[0][1].x > l.pages[0][0].x)
+        assertEquals(l.pages[0][0].y, l.pages[0][1].y, 0f)
     }
 
-    @Test fun rowsRespectTwoColumns() {
-        val rows = DashboardLayout.rows(listOf(WidgetType.SPEED_ARC, WidgetType.MEDIA, WidgetType.CLOCK, WidgetType.WEATHER, WidgetType.TRIP))
-        assertEquals(listOf(listOf(WidgetType.SPEED_ARC), listOf(WidgetType.MEDIA), listOf(WidgetType.CLOCK, WidgetType.WEATHER), listOf(WidgetType.TRIP)), rows)
+    @Test fun flowWrapsWhenRowIsFull() {
+        val f = DashboardLayout.flow(listOf(WidgetType.SPEEDO, WidgetType.CLOCK, WidgetType.MEDIA))
+        assertTrue(f[2].y > f[0].y) // 0.32 + 0.32 + 0.64 > 1 → media wraps
+        assertEquals(0f, f[2].x, 0f)
+    }
+
+    @Test fun resizeKeepsProportionAndStaysOnPage() {
+        val p = Placement(WidgetType.SPEEDO, 0.5f, 0f, 0.3f)
+        val big = p.resized(0.9f)
+        assertEquals(big.w, big.h / WidgetType.SPEEDO.aspect, 0.0001f)
+        assertTrue(big.x + big.w <= 1.0001f)
+        assertTrue(p.resized(0.01f).w >= Placement.MIN_W)
+    }
+
+    @Test fun moveSnapsAndClamps() {
+        val p = Placement(WidgetType.CLOCK, 0f, 0f, 0.32f)
+        val m = p.moved(0.9f, -0.2f)
+        assertEquals(1f - 0.32f, m.x, 0.03f)
+        assertTrue(m.x + m.w <= 1.0001f)
+        assertEquals(0f, m.y, 0f)
+        val s = p.moved(0.1013f, 0.2f)
+        assertEquals(0f, (s.x / Placement.GRID) - Math.round(s.x / Placement.GRID), 0.0001f)
     }
 
     @Test fun editing() {
-        var l = DashboardLayout(listOf(listOf(WidgetType.CLOCK, WidgetType.WEATHER)))
-        l = l.moveWidget(0, 1, 0)
-        assertEquals(listOf(WidgetType.WEATHER, WidgetType.CLOCK), l.pages[0])
+        var l = DashboardLayout.of(listOf(WidgetType.CLOCK, WidgetType.WEATHER))
         l = l.addPage().addWidget(1, WidgetType.MEDIA)
         assertEquals(2, l.pages.size)
+        l = l.addWidget(0, WidgetType.NOTE)
+        val note = l.pages[0].last()
+        assertTrue(note.y >= l.pages[0].take(2).maxOf { it.bottom }) // added below existing widgets
         l = l.removeWidget(0, 0).removePage(1)
-        assertEquals(listOf(listOf(WidgetType.CLOCK)), l.pages)
+        assertEquals(listOf(WidgetType.WEATHER, WidgetType.NOTE), l.types(0))
         assertEquals(l, l.removePage(0)) // last page can't be removed
         assertEquals(l, l.moveWidget(0, 0, 5)) // out of range is a no-op
     }
