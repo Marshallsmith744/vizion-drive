@@ -1,6 +1,7 @@
 package com.vizionconcepts.drive
 
 import com.vizionconcepts.drive.ambient.ElkBledom
+import com.vizionconcepts.drive.dashboard.DashChannel
 import com.vizionconcepts.drive.dashboard.DashboardLayout
 import com.vizionconcepts.drive.dashboard.Placement
 import com.vizionconcepts.drive.dashboard.Presets
@@ -252,17 +253,16 @@ class DigitalDashTest {
     }
 
     @Test fun channelsReadObdAndShowDashesWhenMissing() {
-        val ch = com.vizionconcepts.drive.dashboard.DashChannel
         val empty = com.vizionconcepts.drive.obd.ObdSnapshot()
-        assertEquals("--", ch.COOLANT.text(empty))
-        assertEquals(0f, ch.COOLANT.fraction(empty), 0f)
+        assertEquals("--", DashChannel.COOLANT.text(empty))
+        assertEquals(0f, DashChannel.COOLANT.fraction(empty), 0f)
         val snap = com.vizionconcepts.drive.obd.ObdSnapshot(values = mapOf(
             com.vizionconcepts.drive.obd.ObdPid.COOLANT to 90.4f,
             com.vizionconcepts.drive.obd.ObdPid.VOLTAGE to 14.13f,
         ))
-        assertEquals("90", ch.COOLANT.text(snap))
-        assertEquals("14.1", ch.BATTERY.text(snap))
-        assertEquals(4, ch.LEFT.size); assertEquals(4, ch.RIGHT.size)
+        assertEquals("90", DashChannel.COOLANT.text(snap))
+        assertEquals("14.1", DashChannel.BATTERY.text(snap))
+        assertEquals(4, DashChannel.LEFT.size); assertEquals(4, DashChannel.RIGHT.size)
     }
 
     @Test fun dashesStartFullWidthAndStayProportional() {

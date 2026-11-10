@@ -85,8 +85,8 @@ private fun rememberNow(): Calendar {
 
 // ───────────────────────────── Race dash ─────────────────────────────
 
-private const val RACE_START = 100f   // 0 rpm sits just right of 6 o'clock
-private const val RACE_SWEEP = 290f
+private const val RACE_START = 120f   // 0 rpm at lower left; the open quarter at lower right holds the boxes
+private const val RACE_SWEEP = 270f
 
 @Composable
 fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
@@ -149,12 +149,12 @@ fun RaceDash(ui: UiState, modifier: Modifier = Modifier) {
             drawCircle(Color(0xFF0B0C0E), r * 0.022f, c)
 
             // Gear / speed / rpm boxes in the open quarter at bottom-right of the dial
-            val bx = c.x + inner * 0.05f
-            val by = c.y + inner * 0.2f
-            val bh = inner * 0.42f
-            infoBox(Rect(Offset(bx, by), Size(bh * 0.75f, bh)), "–", "GEAR")
-            infoBox(Rect(Offset(bx + bh * 0.82f, by), Size(bh * 1.35f, bh)), "$speed", "SPEED ${unit.uppercase(Locale.US)}")
-            infoBox(Rect(Offset(bx, by + bh * 1.08f), Size(bh * 1.4f, bh * 0.72f)), if (obd.connected) "${rpm.toInt()}" else "--", "RPM")
+            val bx = c.x - r * 0.04f
+            val by = c.y + r * 0.47f
+            val bh = r * 0.27f
+            infoBox(Rect(Offset(bx, by), Size(bh * 0.8f, bh)), "–", "GEAR")
+            infoBox(Rect(Offset(bx + bh * 0.88f, by), Size(r * 0.72f - bh * 0.88f, bh)), "$speed", "SPEED ${unit.uppercase(Locale.US)}")
+            infoBox(Rect(Offset(bx, by + bh * 1.06f), Size(r * 0.62f, bh * 0.72f)), if (obd.connected) "${rpm.toInt()}" else "--", "RPM")
         }
     }
 }
@@ -239,9 +239,9 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
             levelBar(Rect(Offset(w - h * 0.035f - w * 0.012f, h * 0.18f), Size(w * 0.012f, h * 0.64f)),
                 throttle?.let { it / 100f } ?: speedF)
 
-            val r = min(w * 0.215f, h * 0.43f)
-            val lc = Offset(w * 0.255f, h * 0.45f)
-            val rc = Offset(w * 0.745f, h * 0.45f)
+            val r = min(w * 0.19f, h * 0.43f)
+            val lc = Offset(w * 0.215f, h * 0.45f)
+            val rc = Offset(w * 0.785f, h * 0.45f)
             speedCluster(lc, r, speedF, ui.speedMax, gps.bearing, rpmF, rpm != null, gps.altitudeM, accent)
             watchFace(rc, r, now, accent)
 
@@ -262,17 +262,17 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
             val cx = w / 2f
             label("%02d:%02d".format(Locale.US, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE)), cx, h * 0.1f, h * 0.11f, DashWhite)
             val dayIdx = (now.get(Calendar.DAY_OF_WEEK) + 5) % 7
-            val stripW = w * 0.2f
+            val stripW = w * 0.19f
             DAYS.forEachIndexed { i, d ->
                 val x = cx - stripW / 2 + stripW * (i + 0.5f) / 7f
                 if (i == dayIdx) drawRoundRect(DashWhite, Offset(x - stripW / 16f, h * 0.175f), Size(stripW / 8f, h * 0.04f), CornerRadius(h * 0.006f))
-                label(d, x, h * 0.195f, h * 0.026f, if (i == dayIdx) Color.Black else DashDim, face = medium)
+                label(d, x, h * 0.195f, h * 0.018f, if (i == dayIdx) Color.Black else DashDim, face = medium)
             }
             label("$speed", cx, h * 0.38f, h * 0.17f, DashWhite)
             label(unit, cx, h * 0.5f, h * 0.04f, DashDim, face = plain)
             if (media.active && media.title.isNotBlank()) {
-                label(media.title.take(26), cx, h * 0.6f, h * 0.045f, DashWhite, face = medium)
-                if (media.artist.isNotBlank()) label(media.artist.take(30), cx, h * 0.665f, h * 0.032f, DashDim, face = plain)
+                label(media.title.take(16), cx, h * 0.6f, h * 0.04f, DashWhite, face = medium)
+                if (media.artist.isNotBlank()) label(media.artist.take(20), cx, h * 0.66f, h * 0.03f, DashDim, face = plain)
             }
 
             // Mini gauges along the bottom centre
@@ -281,7 +281,7 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
                 Triple("BATTERY", DashChannel.BATTERY.fraction(obd), DashChannel.BATTERY.text(obd)),
                 Triple("FUEL", DashChannel.FUEL.fraction(obd), DashChannel.FUEL.text(obd)),
             )
-            val mr = h * 0.075f
+            val mr = h * 0.065f
             mini.forEachIndexed { i, (name, frac, txt) ->
                 miniGauge(Offset(cx + (i - 1) * mr * 2.5f, h * 0.84f), mr, frac, name, txt)
             }
