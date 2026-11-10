@@ -292,16 +292,16 @@ fun ClusterDash(ui: UiState, modifier: Modifier = Modifier) {
                 drawCircle(Color(0xFF2C2D31), K(55f), c, style = Stroke(K(2f)))
                 needle(c, ang(speedA), K(50f), K(275f))
                 // Floating digital speed box, drawn over the needle and clear of the hub
-                val bTl = Offset(c.x - K(128f), c.y + K(64f))
-                val bSz = Size(K(210f), K(124f))
+                val bTl = Offset(c.x - K(135f), c.y + K(14f))
+                val bSz = Size(K(270f), K(150f))
                 val bCr = CornerRadius(K(16f))
                 drawRoundRect(Color.Black.copy(alpha = 0.55f), Offset(bTl.x + K(4f), bTl.y + K(8f)), bSz, bCr)
                 drawRoundRect(acc.copy(alpha = 0.18f), Offset(bTl.x - K(4f), bTl.y - K(4f)), Size(bSz.width + K(8f), bSz.height + K(8f)), CornerRadius(K(20f)))
                 drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF17171A), Color(0xFF060607)), bTl.y, bTl.y + bSz.height), bTl, bSz, bCr)
                 drawRoundRect(acc.copy(alpha = 0.8f), bTl, bSz, bCr, style = Stroke(K(2f)))
                 drawLine(Color.White.copy(alpha = 0.1f), Offset(bTl.x + K(16f), bTl.y + K(2f)), Offset(bTl.x + bSz.width - K(16f), bTl.y + K(2f)), strokeWidth = K(2f))
-                text("$speed", bTl.x + bSz.width / 2f + K(3f), bTl.y + K(48f), K(88f), Color.White, fonts.w800)
-                text(if (mph) "mph" else "km/h", bTl.x + bSz.width / 2f, bTl.y + K(104f), K(26f), Color(0xFFEDEDF0), fonts.w500)
+                text("$speed", bTl.x + bSz.width / 2f + K(4f), bTl.y + K(60f), K(112f), Color.White, fonts.w800)
+                text(if (mph) "mph" else "km/h", bTl.x + bSz.width / 2f, bTl.y + K(127f), K(30f), Color(0xFFEDEDF0), fonts.w500)
             }
 
         }
