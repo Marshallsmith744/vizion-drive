@@ -289,5 +289,56 @@ class DigitalDashTest {
         val smaller = p.resized(0.5f)
         assertEquals(0.3f, smaller.h, 0.01f)
     }
-}
 
+    // ---- shuffle on overlap ----
+    private fun noOverlaps(list: List<Placement>) {
+        for (i in list.indices) for (j in list.indices) if (i < j) assertTrue("$i overlaps $j", !list[i].overlaps(list[j]))
+    }
+
+    @Test fun droppingOnAWidgetPushesItDown() {
+        val a = Placement(WidgetType.CLOCK, 0f, 0f, 0.32f)          // h = 0.24
+        val b = Placement(WidgetType.WEATHER, 0.5f, 0f, 0.32f)
+        val l = DashboardLayout(listOf(listOf(a, b))).place(0, 0, a.moved(0.5f, 0.1f))
+        val moved = l.pages[0].first { it.type == WidgetType.CLOCK }
+        val pushed = l.pages[0].first { it.type == WidgetType.WEATHER }
+        assertEquals(0.5f, moved.x, 0.001f); assertEquals(0.104f, moved.y, 0.01f)
+        assertTrue(pushed.y >= moved.bottom)
+        assertEquals(0.5f, pushed.x, 0.001f)
+        noOverlaps(l.pages[0])
+        assertEquals(WidgetType.CLOCK, l.pages[0].last().type) // dropped widget drawn on top
+    }
+
+    @Test fun shuffleCascades() {
+        val stack = listOf(
+            Placement(WidgetType.CLOCK, 0f, 0f, 0.32f),
+            Placement(WidgetType.WEATHER, 0f, 0.26f, 0.32f),
+            Placement(WidgetType.COMPASS, 0f, 0.52f, 0.32f),
+        )
+        val big = Placement(WidgetType.SPEEDO, 0f, 0f, 0.5f) // h = 0.5, lands on the first two
+        val out = Placement.settle(listOf(big) + stack, 0)
+        noOverlaps(out)
+        assertEquals(0f, out[0].y, 0f)
+        assertTrue(out[1].y < out[2].y && out[2].y < out[3].y) // order kept
+    }
+
+    @Test fun nonOverlappingWidgetsStayPut() {
+        val a = Placement(WidgetType.CLOCK, 0f, 0f, 0.32f)
+        val b = Placement(WidgetType.WEATHER, 0.5f, 0f, 0.32f)
+        val c = Placement(WidgetType.COMPASS, 0f, 0.5f, 0.32f)
+        assertEquals(listOf(a, b, c), Placement.settle(listOf(a, b, c), 0))
+    }
+
+    @Test fun touchingEdgesIsNotAnOverlap() {
+        val a = Placement(WidgetType.CLOCK, 0f, 0f, 0.32f)
+        val b = Placement(WidgetType.CLOCK, 0.32f, 0f, 0.32f)
+        assertTrue(!a.overlaps(b))
+    }
+
+    @Test fun resizingIntoNeighbourPushesItDown() {
+        val a = Placement(WidgetType.SPEEDO, 0f, 0f, 0.32f)
+        val b = Placement(WidgetType.CLOCK, 0f, 0.36f, 0.32f)
+        val l = DashboardLayout(listOf(listOf(a, b))).place(0, 0, a.resized(0.6f))
+        noOverlaps(l.pages[0])
+        assertTrue(l.pages[0].first { it.type == WidgetType.CLOCK }.y >= 0.6f)
+    }
+}

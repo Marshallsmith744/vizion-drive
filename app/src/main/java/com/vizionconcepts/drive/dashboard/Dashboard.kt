@@ -45,6 +45,9 @@ data class Placement(val type: WidgetType, val x: Float, val y: Float, val w: Fl
     fun moved(nx: Float, ny: Float) = copy(x = snap(nx).coerceIn(0f, 1f - w), y = snap(ny).coerceAtLeast(0f))
     fun resized(nw: Float) = snap(nw).coerceIn(MIN_W, 1f).let { cw -> copy(w = cw, x = x.coerceAtMost(1f - cw)) }
 
+    fun overlaps(o: Placement): Boolean =
+        x < o.x + o.w - EPS && o.x < x + w - EPS && y < o.bottom - EPS && o.y < bottom - EPS
+
     fun encode() = "${type.name}@${fmt(x)},${fmt(y)},${fmt(w)}"
 
     companion object {
@@ -52,6 +55,34 @@ data class Placement(val type: WidgetType, val x: Float, val y: Float, val w: Fl
         const val MIN_W = 0.16f
         fun snap(v: Float) = Math.round(v / GRID) * GRID
         private fun fmt(v: Float) = "%.4f".format(java.util.Locale.US, v)
+        private const val EPS = 0.0005f
+
+        /** Rounds up to the grid, so a widget pushed below another never snaps back into it. */
+        fun snapUp(v: Float) = kotlin.math.ceil(v / GRID - 0.001f) * GRID
+
+        /**
+         * Resolves overlaps after [anchor] was moved or resized: the anchor stays exactly where it is;
+         * every other widget, top to bottom, keeps its spot unless it hits something already placed,
+         * in which case it slides straight down just below it. Order and horizontal positions are kept.
+         */
+        fun settle(list: List<Placement>, anchor: Int): List<Placement> {
+            if (anchor !in list.indices) return list
+            val out = list.toMutableList()
+            val placed = mutableListOf(list[anchor])
+            val order = list.indices.filter { it != anchor }.sortedWith(compareBy({ list[it].y }, { list[it].x }))
+            for (i in order) {
+                var p = list[i]
+                while (true) {
+                    val hits = placed.filter { it.overlaps(p) }
+                    if (hits.isEmpty()) break
+                    p = p.copy(y = snapUp(hits.maxOf { it.bottom } + GRID))
+                }
+                placed += p
+                out[i] = p
+            }
+            return out
+        }
+
         fun defaultWidth(t: WidgetType) = when {
             t.isFullDash -> 1f
             t.span == 2 -> 0.64f
@@ -77,15 +108,25 @@ data class DashboardLayout(val pages: List<List<Placement>>) {
     fun removePage(index: Int): DashboardLayout =
         if (pages.size <= 1) this else copy(pages = pages.filterIndexed { i, _ -> i != index })
 
-    /** Adds a widget below everything else on the page, at its default size. */
     /** Adds a new page holding just [type] at full width — the biggest it can be while keeping its shape. */
     fun addFullPage(type: WidgetType): DashboardLayout =
         copy(pages = pages.filter { it.isNotEmpty() } + listOf(listOf(Placement(type, 0f, 0f, 1f))))
 
+    /** Adds a widget below everything else on the page, at its default size. */
     fun addWidget(page: Int, type: WidgetType): DashboardLayout {
         val list = pages[page]
         val y = list.maxOfOrNull { it.bottom }?.let { Placement.snap(it + GAP) } ?: 0f
         return withPage(page, list + Placement(type, 0f, y, Placement.defaultWidth(type)))
+    }
+
+    /**
+     * Drops widget [position] at [p]; anything it now overlaps shuffles down (cascading), and the
+     * dropped widget is drawn on top.
+     */
+    fun place(page: Int, position: Int, p: Placement): DashboardLayout {
+        val list = pages[page].toMutableList().also { it[position] = p }
+        val settled = Placement.settle(list, position)
+        return withPage(page, settled).moveWidget(page, position, settled.lastIndex)
     }
 
     fun removeWidget(page: Int, position: Int) =

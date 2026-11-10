@@ -1,6 +1,20 @@
 package com.vizionconcepts.drive.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -51,8 +65,8 @@ import com.vizionconcepts.drive.dashboard.Placement
 import kotlinx.coroutines.launch
 
 /**
- * Swipeable pages of freely placed widgets. In edit mode every widget can be dragged
- * anywhere and resized from its corner handle; size changes keep the widget's proportions.
+ * Swipeable pages of freely placed widgets. Long-press any widget (or just drag it in edit mode)
+ * to move it; widgets it lands on shuffle down. The corner handle resizes in proportion.
  */
 @Composable
 fun FreePages(ui: UiState, c: AppContainer, modifier: Modifier, open: (Overlay) -> Unit) {
@@ -78,7 +92,7 @@ fun FreePages(ui: UiState, c: AppContainer, modifier: Modifier, open: (Overlay) 
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("Editing page ${pager.currentPage + 1}", color = p.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Drag to move · drag the corner handle to resize · ✕ to remove", color = p.dim, fontSize = 12.sp)
+                    Text("Drag to move – others shuffle down · corner handle resizes · ✕ removes", color = p.dim, fontSize = 12.sp)
                 }
                 Chip("+ Add widget") { open(Overlay.EDITOR) }
                 Spacer(Modifier.size(6.dp))
@@ -98,14 +112,41 @@ fun FreePages(ui: UiState, c: AppContainer, modifier: Modifier, open: (Overlay) 
                     }
                     return@BoxWithConstraints
                 }
-                val contentH = wDp * (items.maxOf { it.bottom } + 0.02f)
+                // While a widget is being dragged/resized, the others preview where they'd shuffle to.
+                var active by remember(index) { mutableStateOf<Int?>(null) }
+                var live by remember(index) { mutableStateOf<Placement?>(null) }
+                val a = active
+                val l = live
+                val shown: List<Placement> = if (a != null && l != null && a in items.indices) {
+                    val snapped = if (l.w != items[a].w) l.resized(l.w) else l.moved(l.x, l.y)
+                    Placement.settle(items.toMutableList().also { it[a] = snapped }, a).toMutableList().also { it[a] = l }
+                } else items
+                val contentH = wDp * (shown.maxOf { it.bottom } + 0.02f)
                 Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    Box(Modifier.fillMaxWidth().height(if (editing) contentH + 200.dp else contentH)) {
-                        items.forEachIndexed { i, pl ->
+                    Box(Modifier.fillMaxWidth().height(if (editing || a != null) contentH + 200.dp else contentH)) {
+                        // Active widget drawn last so it floats above the others.
+                        val drawOrder = items.indices.sortedBy { if (it == a) 1 else 0 }
+                        for (i in drawOrder) key(items[i].type, i) {
                             PlacedWidget(
-                                pl, wDp, wPx, editing, ui, c, open,
-                                // Edited widget comes to the front so its handles are never hidden under another widget.
-                                onCommit = { np -> commit(draft.update(index, i, np).moveWidget(index, i, items.lastIndex)) },
+                                shown[i], i == a, wDp, wPx, editing, ui, c, open,
+                                onStart = {
+                                    active = i; live = items[i]
+                                    if (!c.editLayout.value) c.editLayout.value = true
+                                },
+                                onMove = { dx, dy ->
+                                    live = live?.let { it.copy(x = (it.x + dx / wPx).coerceIn(0f, 1f - it.w), y = (it.y + dy / wPx).coerceAtLeast(0f)) }
+                                },
+                                onResize = { grow ->
+                                    live = live?.let { it.copy(w = (it.w + grow / wPx).coerceIn(Placement.MIN_W, 1f - it.x)) }
+                                },
+                                onEnd = {
+                                    val fin = live
+                                    if (fin != null) {
+                                        val snapped = if (fin.w != items[i].w) fin.resized(fin.w) else fin.moved(fin.x, fin.y)
+                                        commit(draft.place(index, i, snapped))
+                                    }
+                                    active = null; live = null
+                                },
                                 onDelete = { commit(draft.removeWidget(index, i)) },
                             )
                         }
@@ -129,39 +170,86 @@ fun FreePages(ui: UiState, c: AppContainer, modifier: Modifier, open: (Overlay) 
 @Composable
 private fun PlacedWidget(
     pl: Placement,
+    isActive: Boolean,
     wDp: Dp,
     wPx: Float,
     editing: Boolean,
     ui: UiState,
     c: AppContainer,
     open: (Overlay) -> Unit,
-    onCommit: (Placement) -> Unit,
+    onStart: () -> Unit,
+    onMove: (Float, Float) -> Unit,
+    onResize: (Float) -> Unit,
+    onEnd: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val p = LocalPalette.current
-    var live by remember(pl) { mutableStateOf(pl) }
+    val haptics = LocalHapticFeedback.current
+    // Widgets being shuffled glide to their new spot; the one under your finger follows it exactly.
+    val spec = if (isActive) snap<Dp>() else tween<Dp>(220)
+    val x by animateDpAsState(wDp * pl.x, spec, label = "x")
+    val y by animateDpAsState(wDp * pl.y, spec, label = "y")
+    val editingNow by rememberUpdatedState(editing)
+    val start by rememberUpdatedState(onStart)
+    val move by rememberUpdatedState(onMove)
+    val end by rememberUpdatedState(onEnd)
     Box(
         Modifier
-            .offset(x = wDp * live.x, y = wDp * live.y)
-            .size(wDp * live.w, wDp * live.h)
+            .offset(x = x, y = y)
+            .size(wDp * pl.w, wDp * pl.h)
+            .zIndex(if (isActive) 1f else 0f)
+            .graphicsLayer { if (isActive) { scaleX = 1.03f; scaleY = 1.03f; alpha = 0.92f } }
             .padding(6.dp)
+            .pointerInput(Unit) {
+                // Long-press (or, in edit mode, just drag) to pick a widget up and move it.
+                val handle = 56.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val immediate = editingNow
+                    if (immediate && down.position.x > size.width - handle && down.position.y > size.height - handle) {
+                        return@awaitEachGesture // that's the resize handle
+                    }
+                    if (immediate) {
+                        var moved = false
+                        while (!moved) {
+                            val ch = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                                ?: return@awaitEachGesture
+                            if (!ch.pressed) return@awaitEachGesture
+                            moved = (ch.position - down.position).getDistance() > viewConfiguration.touchSlop
+                        }
+                    } else {
+                        val finishedEarly = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                            var gone = false
+                            while (!gone) {
+                                val ch = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                                gone = ch == null || !ch.pressed ||
+                                    (ch.position - down.position).getDistance() > viewConfiguration.touchSlop
+                            }
+                            true
+                        }
+                        if (finishedEarly != null) return@awaitEachGesture // a tap or a scroll, not a long press
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    start()
+                    while (true) {
+                        val ch = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                        val d = ch.position - ch.previousPosition
+                        ch.consume() // the widget, page scroll and pager don't react while carrying
+                        if (!ch.pressed) break
+                        move(d.x, d.y)
+                    }
+                    end()
+                }
+            }
     ) {
         WidgetView(pl.type, ui, c, open, Modifier.fillMaxSize())
         if (editing) {
-            // Drag surface over the whole widget (also blocks taps on the widget while editing).
+            // Highlight + tap blocker while editing.
             Box(
                 Modifier.matchParentSize().clip(RoundedCornerShape(22.dp))
-                    .background(p.accent.copy(alpha = 0.10f))
+                    .background(p.accent.copy(alpha = if (isActive) 0.18f else 0.10f))
                     .border(2.dp, p.accent, RoundedCornerShape(22.dp))
-                    .pointerInput(pl) {
-                        detectDragGestures(onDragEnd = { onCommit(live.moved(live.x, live.y)) }) { change, d ->
-                            change.consume()
-                            live = live.copy(
-                                x = (live.x + d.x / wPx).coerceIn(0f, 1f - live.w),
-                                y = (live.y + d.y / wPx).coerceAtLeast(0f),
-                            )
-                        }
-                    }
+                    .pointerInput(Unit) { detectTapGestures { } }
             )
             Text(
                 pl.type.title, color = Color.White, fontSize = 12.sp,
@@ -176,11 +264,14 @@ private fun PlacedWidget(
             // Proportional resize: only width changes, height follows the widget's fixed aspect ratio.
             Box(
                 Modifier.align(Alignment.BottomEnd).padding(4.dp).size(44.dp).clip(CircleShape).background(p.accent)
-                    .pointerInput(pl) {
-                        detectDragGestures(onDragEnd = { onCommit(live.resized(live.w)) }) { change, d ->
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { start() },
+                            onDragEnd = { end() },
+                            onDragCancel = { end() },
+                        ) { change, d ->
                             change.consume()
-                            val grow = (d.x + d.y / live.type.aspect) / 2f / wPx
-                            live = live.copy(w = (live.w + grow).coerceIn(Placement.MIN_W, 1f - live.x))
+                            onResize((d.x + d.y / pl.type.aspect) / 2f)
                         }
                     },
                 contentAlignment = Alignment.Center,
