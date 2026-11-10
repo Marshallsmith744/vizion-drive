@@ -289,7 +289,7 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
     val s = ui.settings
     fun toast(msg: String) = android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
     Section("Dash colour") {
-        Body("Tacho band, segment meters, sub-dial hands and accents on both dashes. The red shift zone starts at your shift-light rpm (Driving tab).")
+        Body("Sub-dial hands, rings and accents on the dash. The red shift zone starts at your shift-light rpm (Driving tab).")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
             for (dc in DialColor.entries.filter { it != DialColor.CUSTOM && it != DialColor.ACCENT }) {
                 Swatch(Color(dc.argb), dc.label, dc.argb == s.dashColor) { update { it.copy(dashColor = dc.argb) } }
@@ -298,8 +298,6 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
         ColorWheel(s.dashColor, { argb -> update { it.copy(dashColor = argb) } })
     }
     val dashes = listOf(
-        WidgetType.RACE_DASH to "Motorsport display: big two-colour tacho with shift zone and warning lights, rpm/speed/time boxes, " +
-            "and eight bar-meter tiles – coolant, fuel, outside temp, trip, average speed, top speed, trip time and altitude.",
         WidgetType.TWIN_DASH to "Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face " +
             "with date. Digital clock, speed and now-playing in the centre; rainbow rpm and speed bars on the edges; " +
             "coolant, fuel and outside-temp mini gauges.",
@@ -308,7 +306,7 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
         Section(type.title.substringBefore(" –")) {
             Body(about)
             Box(Modifier.fillMaxWidth().aspectRatio(1f / type.aspect).padding(vertical = 6.dp)) {
-                if (type == WidgetType.RACE_DASH) RaceDash(ui, Modifier.fillMaxSize()) else TwinDash(ui, Modifier.fillMaxSize())
+                TwinDash(ui, Modifier.fillMaxSize())
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
                 Chip("Add as its own page (full size)", selected = true) {

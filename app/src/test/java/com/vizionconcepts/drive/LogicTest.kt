@@ -288,12 +288,12 @@ class DigitalDashTest {
     }
 
     @Test fun dashesStartFullWidthAndStayProportional() {
-        val l = DashboardLayout(listOf(emptyList())).addWidget(0, WidgetType.RACE_DASH)
+        val l = DashboardLayout(listOf(emptyList())).addWidget(0, WidgetType.TWIN_DASH)
         val p = l.pages[0][0]
         assertEquals(1f, p.w, 0.001f)
-        assertEquals(0.6f, p.h, 0.001f)
+        assertEquals(0.56f, p.h, 0.001f)
         val smaller = p.resized(0.5f)
-        assertEquals(0.3f, smaller.h, 0.01f)
+        assertEquals(0.28f, smaller.h, 0.01f)
     }
 
     // ---- shuffle on overlap ----

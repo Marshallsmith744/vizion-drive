@@ -8,7 +8,6 @@ package com.vizionconcepts.drive.dashboard
 enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = false, val aspect: Float = if (span == 2) 0.42f else 1f) {
     SPEEDO("Speedometer (your gauge style)", 1),
     TACHO("Tachometer (your gauge style)", 1, needsObd = true),
-    RACE_DASH("Race dash – tacho + data tiles", 2, aspect = 0.6f),
     TWIN_DASH("Twin-dial dash – speed + clock", 2, aspect = 0.56f),
     SPEED_ARC("Speed – arc", 1),
     SPEED_DIGITAL("Speed – digital", 1, aspect = 0.8f),
@@ -30,7 +29,7 @@ enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = 
     NOTE("Note", 1, aspect = 0.5f);
 
     /** Whole-screen digital dashes start at full page width. */
-    val isFullDash: Boolean get() = this == RACE_DASH || this == TWIN_DASH
+    val isFullDash: Boolean get() = this == TWIN_DASH
 }
 
 /**
@@ -201,11 +200,8 @@ enum class Presets(val title: String, val description: String, val layout: Dashb
         )
     ),
     DIGITAL(
-        "Digital dash", "Race dash and twin-dial dash, one per page",
-        DashboardLayout.of(
-            listOf(WidgetType.RACE_DASH, WidgetType.MEDIA, WidgetType.CLOCK),
-            listOf(WidgetType.TWIN_DASH, WidgetType.MEDIA, WidgetType.WEATHER),
-        )
+        "Digital dash", "Twin-dial dash with music and weather",
+        DashboardLayout.of(listOf(WidgetType.TWIN_DASH, WidgetType.MEDIA, WidgetType.WEATHER))
     ),
     MINIMAL(
         "Minimal HUD", "Big speed, nothing else",
