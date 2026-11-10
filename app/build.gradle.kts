@@ -16,6 +16,16 @@ android {
         versionName = "0.1.0"
     }
 
+    // One fixed key for every build, so each new APK installs as an update over the last one
+    // (without it every cloud build got a fresh random debug key and Android refused to update).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("vizion-drive.keystore")
+            storePassword = "vizionDrive2026"
+            keyAlias = "vizion"
+            keyPassword = "vizionDrive2026"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
