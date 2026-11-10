@@ -24,9 +24,11 @@ enum class GaugeStyle(val label: String) {
     SPORT_GLOW("Sport glow"), CHROME("Chrome classic"), RACE_BAND("Race band"), ROAD("Road view"),
     DIGITAL("Digital"), ARC("Arc"), NEEDLE("Needle dial"), RING("Ring"), BAR("Segment bar"), HUD("HUD")
 }
+/** Bright, fully saturated RGB colours. CUSTOM uses the colour picked on the wheel. */
 enum class DialColor(val label: String, val argb: Long) {
-    ACCENT("Accent", 0), RED("Red", 0xFFFF2D1F), CYAN("Cyan", 0xFF22D3EE), AMBER("Amber", 0xFFFFB020),
-    WHITE("White", 0xFFF4F6F8), GREEN("Green", 0xFF34C759), PURPLE("Purple", 0xFFBF5AF2)
+    RED("Red", 0xFFFF1A1A), ORANGE("Orange", 0xFFFF6A00), YELLOW("Yellow", 0xFFFFE600), GREEN("Green", 0xFF00FF66),
+    CYAN("Cyan", 0xFF00F0FF), BLUE("Blue", 0xFF2979FF), PURPLE("Purple", 0xFFB026FF), PINK("Pink", 0xFFFF2BD6),
+    WHITE("White", 0xFFFFFFFF), ACCENT("Accent", 0), CUSTOM("Custom", 0)
 }
 enum class NumberColor { TEXT, ACCENT }
 enum class DockPosition { BOTTOM, TOP }
@@ -37,8 +39,8 @@ enum class BackgroundStyle(val label: String) {
 
 /** Accent palette offered in settings (ARGB). */
 val ACCENTS: List<Long> = listOf(
-    0xFFFF3B30, 0xFFFF9500, 0xFFFFD60A, 0xFF34C759,
-    0xFF00C7BE, 0xFF0A84FF, 0xFFBF5AF2, 0xFFE8EDF2,
+    0xFFFF1A1A, 0xFFFF6A00, 0xFFFFE600, 0xFF00FF66,
+    0xFF00F0FF, 0xFF2979FF, 0xFFB026FF, 0xFFFF2BD6,
 )
 
 data class Settings(
@@ -68,6 +70,7 @@ data class Settings(
     val noteText: String = "Vizion Drive",
     val speedStyle: GaugeStyle = GaugeStyle.SPORT_GLOW,
     val dialColor: DialColor = DialColor.RED,
+    val customDial: Long = 0xFF00F0FF,
     val rpmStyle: GaugeStyle = GaugeStyle.BAR,
     val speedColor: NumberColor = NumberColor.TEXT,
     val panelRpm: Boolean = true,
@@ -106,6 +109,7 @@ class SettingsRepository(private val context: Context) {
         val rpmStyle = stringPreferencesKey("rpm_style")
         val speedColor = stringPreferencesKey("speed_color")
         val dialColor = stringPreferencesKey("dial_color")
+        val customDial = longPreferencesKey("custom_dial")
         val panelRpm = booleanPreferencesKey("panel_rpm")
     }
 
@@ -142,6 +146,7 @@ class SettingsRepository(private val context: Context) {
             p[K.rpmStyle] = s.rpmStyle.name
             p[K.speedColor] = s.speedColor.name
             p[K.dialColor] = s.dialColor.name
+            p[K.customDial] = s.customDial
             p[K.panelRpm] = s.panelRpm
         }
     }
@@ -175,6 +180,7 @@ class SettingsRepository(private val context: Context) {
         rpmStyle = enumOr(p[K.rpmStyle], d.rpmStyle),
         speedColor = enumOr(p[K.speedColor], d.speedColor),
         dialColor = enumOr(p[K.dialColor], d.dialColor),
+        customDial = p[K.customDial] ?: d.customDial,
         panelRpm = p[K.panelRpm] ?: d.panelRpm,
     )
 

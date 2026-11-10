@@ -87,9 +87,11 @@ data class UiState(
     val speedMax: Float get() = if (settings.unit.name == "MPH") 160f else 260f
 
     @Composable
-    fun dialColor(): Color =
-        if (settings.dialColor == com.vizionconcepts.drive.settings.DialColor.ACCENT) LocalPalette.current.accent
-        else Color(settings.dialColor.argb)
+    fun dialColor(): Color = when (settings.dialColor) {
+        com.vizionconcepts.drive.settings.DialColor.ACCENT -> LocalPalette.current.accent
+        com.vizionconcepts.drive.settings.DialColor.CUSTOM -> Color(settings.customDial)
+        else -> Color(settings.dialColor.argb)
+    }
 
     @Composable
     fun speedNumberColor(): Color? =

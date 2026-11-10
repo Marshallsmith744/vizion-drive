@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -183,7 +184,8 @@ private fun Appearance(s: Settings, update: ((Settings) -> Settings) -> Unit) {
                 )
             }
         }
-        Body("Gauges, highlights and (optionally) your ambient lighting use this colour.")
+        Body("Gauges, highlights and (optionally) your ambient lighting use this colour. Or pick any colour on the wheel:")
+        ColorWheel(s.accent, { argb -> update { it.copy(accent = argb) } }, Modifier.padding(top = 8.dp).size(200.dp))
     }
     Section("Background") {
         ChoiceRow(BackgroundStyle.entries, s.background, { it.label }) { b -> update { it.copy(background = b) } }
@@ -196,29 +198,36 @@ private fun Appearance(s: Settings, update: ((Settings) -> Settings) -> Unit) {
 @Composable
 private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
     val p = LocalPalette.current
+    val dial = when (s.dialColor) {
+        DialColor.ACCENT -> p.accent
+        DialColor.CUSTOM -> Color(s.customDial)
+        else -> Color(s.dialColor.argb)
+    }
     val sampleSpeed = if (s.unit == SpeedUnit.MPH) 62 else 100
-    val dial = if (s.dialColor == DialColor.ACCENT) p.accent else Color(s.dialColor.argb)
+    val speedMax = if (s.unit == SpeedUnit.MPH) 160f else 260f
     Section("Speedometer style") {
-        Body("Used for the big speed on the vehicle panel and the \"Speedometer (your gauge style)\" widget.")
-        GaugePicker(s.speedStyle) { st -> update { it.copy(speedStyle = st) } }
-        Box(Modifier.fillMaxWidth().height(320.dp).padding(top = 12.dp)) {
-            StyledGauge(
-                s.speedStyle, sampleSpeed.toFloat(), if (s.unit == SpeedUnit.MPH) 160f else 260f, "$sampleSpeed", s.unit.label,
-                Modifier.fillMaxSize(), numberSize = 96.sp,
-                numberColor = if (s.speedColor == NumberColor.ACCENT) p.accent else null,
-                dialColor = dial, gear = "D",
-            )
-        }
+        Body("Tap a gauge. It's used for the big speed on the vehicle panel and the \"Speedometer (your gauge style)\" widget.")
+        GaugeGrid(s.speedStyle, dial) { st -> update { it.copy(speedStyle = st) } }
     }
     Section("Dial colour") {
-        Body("Glow, needle and band colour for Sport glow, Chrome classic, Race band and Road view.")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            for (dc in DialColor.entries) {
+        Body("Glow, needle, band and lit ticks. Pick a preset or use the wheel for any colour.")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
+            for (dc in DialColor.entries.filter { it != DialColor.CUSTOM }) {
                 val col = if (dc == DialColor.ACCENT) p.accent else Color(dc.argb)
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { update { it.copy(dialColor = dc) } }) {
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(col).border(if (dc == s.dialColor) 3.dp else 0.dp, p.text, CircleShape))
-                    Text(dc.label, color = p.dim, fontSize = 12.sp)
-                }
+                Swatch(col, dc.label, dc == s.dialColor) { update { it.copy(dialColor = dc) } }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ColorWheel(if (s.dialColor == DialColor.CUSTOM) s.customDial else (dial.toArgb().toLong() and 0xFFFFFFFFL), { argb ->
+                update { it.copy(dialColor = DialColor.CUSTOM, customDial = argb) }
+            })
+            Spacer(Modifier.width(20.dp))
+            Box(Modifier.weight(1f).height(220.dp)) {
+                StyledGauge(
+                    s.speedStyle, sampleSpeed.toFloat(), speedMax, "$sampleSpeed", s.unit.label, Modifier.fillMaxSize(),
+                    numberSize = 72.sp, numberColor = if (s.speedColor == NumberColor.ACCENT) p.accent else null,
+                    dialColor = dial, gear = "D",
+                )
             }
         }
     }
@@ -228,25 +237,54 @@ private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
         }
     }
     Section("Tachometer style") {
-        Body("Used for the \"Tachometer (your gauge style)\" widget. Needs engine data (OBD or CANbus).")
-        GaugePicker(s.rpmStyle) { st -> update { it.copy(rpmStyle = st) } }
-        Box(Modifier.fillMaxWidth().height(260.dp).padding(top = 12.dp)) {
-            val digital = s.rpmStyle == GaugeStyle.DIGITAL || s.rpmStyle == GaugeStyle.BAR
-            StyledGauge(
-                s.rpmStyle, 4.2f, 8f, if (digital) "4200" else "4.2", if (digital) "rpm" else "×1000 rpm",
-                Modifier.fillMaxSize(), redFrom = s.shiftRpm / 1000f, numberSize = 96.sp, dialColor = dial,
-            )
-        }
+        Body("For the \"Tachometer (your gauge style)\" widget. Needs engine data (OBD or CANbus).")
+        GaugeGrid(s.rpmStyle, dial, rpm = true, redFrom = s.shiftRpm / 1000f) { st -> update { it.copy(rpmStyle = st) } }
         ToggleRow("RPM bar on the vehicle panel", "Shows a shift-light bar under the speed", s.panelRpm) { on ->
             update { it.copy(panelRpm = on) }
         }
     }
 }
 
+/** Every style as a live mini gauge, 3 per row — nothing hidden off-screen. */
 @Composable
-private fun GaugePicker(selected: GaugeStyle, onSelect: (GaugeStyle) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
-        for (g in GaugeStyle.entries) Chip(g.label, selected = g == selected) { onSelect(g) }
+private fun GaugeGrid(selected: GaugeStyle, dial: Color, rpm: Boolean = false, redFrom: Float? = null, onSelect: (GaugeStyle) -> Unit) {
+    val p = LocalPalette.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 8.dp)) {
+        for (row in GaugeStyle.entries.chunked(3)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                for (g in row) {
+                    val on = g == selected
+                    Column(
+                        Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                            .background(if (on) p.accent.copy(alpha = 0.18f) else Color.Black.copy(alpha = 0.35f))
+                            .border(if (on) 2.dp else 0.dp, p.accent, RoundedCornerShape(16.dp))
+                            .clickable { onSelect(g) }.padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(Modifier.fillMaxWidth().height(130.dp)) {
+                            if (rpm) {
+                                val digital = g == GaugeStyle.DIGITAL || g == GaugeStyle.BAR
+                                StyledGauge(g, 4.2f, 8f, if (digital) "4200" else "4.2", if (digital) "rpm" else "x1000",
+                                    Modifier.fillMaxSize(), redFrom = redFrom, numberSize = 34.sp, dialColor = dial)
+                            } else {
+                                StyledGauge(g, 100f, 260f, "100", "km/h", Modifier.fillMaxSize(), numberSize = 34.sp, dialColor = dial)
+                            }
+                        }
+                        Text(g.label, color = if (on) p.accent else p.text, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Swatch(col: Color, label: String, selected: Boolean, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(col).border(if (selected) 3.dp else 0.dp, p.text, CircleShape))
+        Text(label, color = p.dim, fontSize = 12.sp)
     }
 }
 
@@ -401,6 +439,11 @@ private fun AmbientSettings(ui: UiState, c: AppContainer, activity: HomeActivity
         }
         ToggleRow("Power", "", a.on) { c.ambient.setPower(it) }
         SliderRow("Brightness", "${a.brightness}%", a.brightness.toFloat(), 0f..100f) { c.ambient.setBrightness(it.toInt()) }
+        Text("Colour", color = p.text, fontSize = 17.sp, modifier = Modifier.padding(top = 6.dp))
+        ColorWheel(a.color, { argb ->
+            if (ui.settings.ambientMatchAccent) update { it.copy(ambientMatchAccent = false) }
+            c.ambient.setColor(argb)
+        }, Modifier.padding(vertical = 8.dp).size(200.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
             for (i in 0 until 6) Chip("Effect ${i + 1}") { c.ambient.playEffect(i) }
         }
