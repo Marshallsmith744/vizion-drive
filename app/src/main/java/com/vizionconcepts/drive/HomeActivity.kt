@@ -70,6 +70,10 @@ class HomeActivity : ComponentActivity() {
         c.media.refresh()
         c.car.syncVolume()
         c.lastInteraction.value = System.currentTimeMillis()
+        // Location may have been allowed in Android settings while we were away: (re)start GPS.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        ) c.gps.start()
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

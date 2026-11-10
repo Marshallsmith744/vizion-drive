@@ -278,6 +278,15 @@ class DigitalDashTest {
         assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP", "AVG_SPEED", "TOP_SPEED", "TRIP_TIME", "ALTITUDE"), names)
     }
 
+    @Test fun speedFromFixesWhenGpsDoesNotReportIt() {
+        // ~27.8 m north in 1 s ≈ 100 km/h
+        val v = TripComputer.derivedSpeed(-38.0, 145.0, 1_000L, -38.0 + 27.8 / 111_195.0, 145.0, 2_000L)!!
+        assertEquals(100f, v * 3.6f, 1.5f)
+        assertNull(TripComputer.derivedSpeed(Double.NaN, 0.0, 0L, -38.0, 145.0, 1000L)) // no previous fix
+        assertNull(TripComputer.derivedSpeed(-38.0, 145.0, 1_000L, -37.0, 145.0, 2_000L)) // impossible jump
+        assertNull(TripComputer.derivedSpeed(-38.0, 145.0, 1_000L, -38.0, 145.0, 1_050L)) // too little time
+    }
+
     @Test fun oldSplitPanelBecomesTopWidget() {
         val old = DashboardLayout.of(listOf(WidgetType.CLOCK, WidgetType.WEATHER), listOf(WidgetType.MEDIA))
         val l = old.withPanelOnTop()

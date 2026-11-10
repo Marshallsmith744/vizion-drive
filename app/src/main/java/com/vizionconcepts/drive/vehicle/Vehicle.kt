@@ -30,8 +30,28 @@ class LocationTracker(context: Context) {
     val state: StateFlow<GpsState> = _state.asStateFlow()
     private var started = false
 
+    private var prevLat = Double.NaN
+    private var prevLon = Double.NaN
+    private var prevTime = 0L
+    private var smoothed = 0f
+    private var lastGpsFix = 0L
+
     private val listener = LocationListener { loc: Location ->
-        val speed = if (loc.hasSpeed()) loc.speed else 0f
+        val isGps = loc.provider == LocationManager.GPS_PROVIDER
+        // Network fixes are only a stand-in until the GPS locks on.
+        if (!isGps && System.currentTimeMillis() - lastGpsFix < 5_000L) return@LocationListener
+        if (isGps) lastGpsFix = System.currentTimeMillis()
+        // Many head-unit GPS modules don't report speed: work it out from the last two fixes instead.
+        val derived = TripComputer.derivedSpeed(prevLat, prevLon, prevTime, loc.latitude, loc.longitude, loc.time)
+        val raw = when {
+            loc.hasSpeed() && loc.speed > 0f -> loc.speed
+            derived != null -> derived
+            loc.hasSpeed() -> 0f
+            else -> smoothed
+        }
+        smoothed = if (loc.hasSpeed() && loc.speed > 0f) raw else smoothed * 0.4f + raw * 0.6f
+        val speed = if (smoothed < 0.5f) 0f else smoothed
+        prevLat = loc.latitude; prevLon = loc.longitude; prevTime = loc.time
         trip.onFix(loc.latitude, loc.longitude, speed, loc.time, if (loc.hasAccuracy()) loc.accuracy else 10f)
         val prev = _state.value
         _state.value = GpsState(
@@ -47,17 +67,21 @@ class LocationTracker(context: Context) {
         )
     }
 
+    /** What the GPS is doing, for the status line in Settings. */
+    val status: String get() = when {
+        !started -> "Not running – location permission needed"
+        !runCatching { lm.isProviderEnabled(LocationManager.GPS_PROVIDER) }.getOrDefault(false) -> "GPS is switched off in Android settings"
+        !_state.value.hasFix -> "Waiting for satellites…"
+        else -> "Locked on"
+    }
+
+    /** Safe to call repeatedly (e.g. on every resume): only registers once, and retries if an earlier start failed. */
     @SuppressLint("MissingPermission")
     fun start() {
         if (started) return
-        started = runCatching {
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500L, 0f, listener, Looper.getMainLooper())
-            true
-        }.getOrDefault(false)
-        if (!started) runCatching {
-            lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000L, 0f, listener, Looper.getMainLooper())
-            started = true
-        }
+        val gps = runCatching { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500L, 0f, listener, Looper.getMainLooper()); true }.getOrDefault(false)
+        val net = runCatching { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000L, 0f, listener, Looper.getMainLooper()); true }.getOrDefault(false)
+        started = gps || net
     }
 
     fun stop() {

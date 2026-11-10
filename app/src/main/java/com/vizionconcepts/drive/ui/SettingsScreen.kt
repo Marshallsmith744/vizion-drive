@@ -68,7 +68,7 @@ import kotlinx.coroutines.launch
 
 enum class SettingsTab(val title: String) {
     APPEARANCE("Appearance"), GAUGES("Gauges"), DIGITAL_DASH("Digital Dash"), LAYOUT("Layout & dock"), DRIVING("Driving"),
-    OBD("OBD-II"), AMBIENT("Ambient light"), APPS("Apps & startup"), ABOUT("About"),
+    OBD("Car data"), AMBIENT("Ambient light"), APPS("Apps & startup"), ABOUT("About"),
 }
 
 @Composable
@@ -444,6 +444,17 @@ private fun ObdSettings(ui: UiState, c: AppContainer, activity: HomeActivity, up
     val p = LocalPalette.current
     val obd = ui.obd
     var adapters by remember { mutableStateOf(c.obd.pairedAdapters()) }
+    Section("Live data sources") {
+        val g = ui.gps
+        Text("Speed (GPS): ${c.gps.status}", color = if (g.hasFix) p.text else p.danger, fontSize = 16.sp)
+        if (g.hasFix) Body("Now: ${ui.speedShown} ${ui.settings.unit.label} · altitude ${g.altitudeM.toInt()} m")
+        Text(
+            "RPM, coolant, fuel: " + if (obd.connected) "receiving from ${obd.adapterName.ifBlank { "adapter" }}" else "no source connected yet",
+            color = if (obd.connected) p.text else p.danger, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp),
+        )
+        Body("Engine data has to come from the car. Reading it from the head unit's CANbus box is the next step; an OBD-II Bluetooth adapter also works.")
+        Chip("Re-check location permission") { activity.requestPermissionsIfNeeded() }
+    }
     Section("Connection") {
         val stateText = when (obd.state) {
             ObdState.CONNECTED -> "Connected to ${obd.adapterName}"

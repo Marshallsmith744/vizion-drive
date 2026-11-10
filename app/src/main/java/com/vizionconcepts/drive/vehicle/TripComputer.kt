@@ -33,6 +33,18 @@ class TripComputer {
     }
 
     companion object {
+        /**
+         * Speed worked out from two fixes, for GPS modules that don't report speed themselves.
+         * Returns null when it can't be trusted (no previous fix, too little time, or an impossible jump).
+         */
+        fun derivedSpeed(lat0: Double, lon0: Double, t0: Long, lat1: Double, lon1: Double, t1: Long): Float? {
+            if (lat0.isNaN() || t1 <= t0) return null
+            val dt = (t1 - t0) / 1000.0
+            if (dt < 0.2 || dt > 10.0) return null
+            val v = haversine(lat0, lon0, lat1, lon1) / dt
+            return if (v > 90.0) null else v.toFloat()
+        }
+
         fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
             val r = 6_371_000.0
             val dLat = Math.toRadians(lat2 - lat1)
