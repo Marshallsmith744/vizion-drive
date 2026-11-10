@@ -274,13 +274,6 @@ private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
             update { it.copy(speedColor = c) }
         }
     }
-    Section("Tachometer style") {
-        Body("For the \"Tachometer (your gauge style)\" widget. Needs engine data (OBD or CANbus).")
-        GaugeGrid(s.rpmStyle, dial, rpm = true, redFrom = s.shiftRpm / 1000f) { st -> update { it.copy(rpmStyle = st) } }
-        ToggleRow("RPM bar on the vehicle panel", "Shows a shift-light bar under the speed", s.panelRpm) { on ->
-            update { it.copy(panelRpm = on) }
-        }
-    }
 }
 
 @Composable
@@ -315,18 +308,18 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
         ColorWheel(selected, onPick)
     }
 
-    Section("Twin-gauge cluster") {
-        Body("Tachometer and speedometer with chrome rings, coolant / oil temp / voltage / fuel bars, time and outside temp up top, odometer and trip along the bottom.")
+    Section("Speed cluster") {
+        Body("Large analogue speedometer with a floating digital readout, flanked by time, trip, trip time, heading, outside temp, average speed, top speed and altitude.")
         Box(Modifier.fillMaxWidth().aspectRatio(2f).padding(vertical = 6.dp)) { ClusterDash(ui, Modifier.fillMaxSize()) }
         AddButtons(WidgetType.CLUSTER_DASH)
     }
     Section("Cluster colour") {
-        Body("Needles, red zone, bars and glow lines. Pick a preset or use the wheel for any colour.")
+        Body("Needle, speed ring, icons and glow lines. Pick a preset or use the wheel for any colour.")
         ColourPicker(s.clusterColor) { argb -> update { it.copy(clusterColor = argb) } }
     }
     Section("Twin-dial dash") {
-        Body("Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face with date. Digital clock, speed and " +
-            "now-playing in the centre; rainbow rpm and speed bars on the edges; coolant, fuel and outside-temp mini gauges.")
+        Body("Two large dials: speedometer with top-speed, compass and altitude sub-dials, and a watch face with date. Digital clock, speed and " +
+            "now-playing in the centre; rainbow speed bars on the edges; average speed, top speed and outside-temp mini gauges.")
         Box(Modifier.fillMaxWidth().aspectRatio(1f / WidgetType.TWIN_DASH.aspect).padding(vertical = 6.dp)) { TwinDash(ui, Modifier.fillMaxSize()) }
         AddButtons(WidgetType.TWIN_DASH)
     }
@@ -337,8 +330,8 @@ private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings
         Body("Dashes are widgets: Edit dash → drag the corner handle to shrink or grow one. It always keeps its shape; full width is the largest size.")
     }
     Section("Data shown") {
-        Body("Values come from the car's CANbus (via the CAN decoder) and the head unit's own GPS and clock. " +
-            "Anything the car isn't sending shows -- until it arrives.")
+        Body("Everything shown works from the head unit itself: GPS (speed, trip, heading, altitude), the clock and the weather service. " +
+            "Engine data (RPM, temperatures, fuel) is left out until a CANbus link to the car exists.")
     }
 }
 

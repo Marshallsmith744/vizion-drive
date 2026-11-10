@@ -9,7 +9,7 @@ enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = 
     VEHICLE_PANEL("Vehicle panel – speed, rpm, temps", 2, aspect = 0.36f),
     SPEEDO("Speedometer (your gauge style)", 1),
     TACHO("Tachometer (your gauge style)", 1, needsObd = true),
-    CLUSTER_DASH("Twin-gauge cluster – tacho, speedo, temps", 2, aspect = 0.5f),
+    CLUSTER_DASH("Speed cluster – analogue + digital speed", 2, aspect = 0.5f),
     TWIN_DASH("Twin-dial dash – speed + clock", 2, aspect = 0.56f),
     SPEED_ARC("Speed – arc", 1),
     SPEED_DIGITAL("Speed – digital", 1, aspect = 0.8f),
@@ -32,6 +32,9 @@ enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = 
 
     /** Whole-screen digital dashes start at full page width. */
     val isFullDash: Boolean get() = this == TWIN_DASH || this == CLUSTER_DASH
+
+    /** Widgets offered in the "+ Add widget" list (engine-data widgets are hidden: no data source yet). */
+    val offered: Boolean get() = !isFullDash && !needsObd
 }
 
 /**
@@ -108,6 +111,11 @@ data class DashboardLayout(val pages: List<List<Placement>>) {
 
     fun removePage(index: Int): DashboardLayout =
         if (pages.size <= 1) this else copy(pages = pages.filterIndexed { i, _ -> i != index })
+
+    /** Drops widgets that need engine data (RPM, coolant, OBD codes…) — the head unit can't supply it. */
+    fun withoutEngineWidgets(): DashboardLayout =
+        if (pages.none { p -> p.any { it.type.needsObd } }) this
+        else DashboardLayout(pages.map { p -> p.filterNot { it.type.needsObd } })
 
     /** Puts the vehicle panel full-width at the top of page 1, shifting that page down. No-op if it's already placed. */
     fun withPanelOnTop(): DashboardLayout {
@@ -204,10 +212,10 @@ enum class Presets(val title: String, val description: String, val layout: Dashb
         )
     ),
     PERFORMANCE(
-        "Performance", "Engine data first",
+        "Driving", "Speed, trip and heading first",
         DashboardLayout.of(
-            listOf(WidgetType.TACHO, WidgetType.SPEEDO, WidgetType.OBD_SINGLE, WidgetType.OBD_QUAD, WidgetType.DTC),
-            listOf(WidgetType.RPM_BAR, WidgetType.TRIP, WidgetType.MEDIA),
+            listOf(WidgetType.SPEEDO, WidgetType.TRIP, WidgetType.SPEED_BAR, WidgetType.COMPASS, WidgetType.CLOCK),
+            listOf(WidgetType.MEDIA, WidgetType.WEATHER, WidgetType.NAVIGATION),
         )
     ),
     DIGITAL(

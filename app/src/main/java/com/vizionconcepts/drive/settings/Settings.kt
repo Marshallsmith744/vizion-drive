@@ -173,7 +173,8 @@ class SettingsRepository(private val context: Context) {
      * (everything else shifts down) and switch to the widgets-only home layout.
      */
     private fun Settings.withPanelAsWidget(): Settings =
-        if (layoutMode != LayoutMode.SPLIT) this else copy(layout = layout.withPanelOnTop(), layoutMode = LayoutMode.FULL)
+        (if (layoutMode != LayoutMode.SPLIT) this else copy(layout = layout.withPanelOnTop(), layoutMode = LayoutMode.FULL))
+            .let { it.copy(layout = it.layout.withoutEngineWidgets()) }
 
     private fun readFrom(p: Preferences, d: Settings) = Settings(
         accent = p[K.accent] ?: d.accent,

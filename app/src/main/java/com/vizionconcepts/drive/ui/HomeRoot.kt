@@ -226,10 +226,7 @@ internal fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overla
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(0.58f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    StatusPill(
-                        when (obd.state) { ObdState.CONNECTED -> "OBD"; ObdState.CONNECTING -> "OBD…"; else -> "GPS" },
-                        if (obd.connected || ui.gps.hasFix) p.ok else p.dim,
-                    ) { open(Overlay.SETTINGS_OBD) }
+                    StatusPill(if (ui.gps.hasFix) "GPS" else "No GPS fix", if (ui.gps.hasFix) p.ok else p.danger) { open(Overlay.SETTINGS_OBD) }
                     Spacer(Modifier.weight(1f))
                     if (ui.settings.speedAlert > 0) {
                         Box(Modifier.size(46.dp).clip(CircleShape).background(p.danger), contentAlignment = Alignment.Center) {
@@ -239,19 +236,12 @@ internal fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overla
                         }
                     }
                 }
-                if (obd.connected && ui.settings.panelRpm) {
-                    val rpm = obd[ObdPid.RPM] ?: 0f
-                    Column {
-                        Text("${rpm.toInt()} rpm", color = p.dim, fontSize = 13.sp)
-                        SegmentBar(rpm / 8000f, redFrom = ui.settings.shiftRpm / 8000f, shiftLight = true)
-                    }
-                }
+                // Only what the head unit really has: GPS, weather and the trip computer.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    MiniStat("Coolant", obd[ObdPid.COOLANT]?.let { "${it.toInt()}°" } ?: "–",
-                        warn = (obd[ObdPid.COOLANT] ?: 0f) >= ui.settings.coolantAlertC)
-                    MiniStat("Battery", obd[ObdPid.VOLTAGE]?.let { "%.1fV".format(it) } ?: "–")
-                    MiniStat("Outside", (obd[ObdPid.AMBIENT]?.toInt() ?: ui.weather.tempC.toInt().takeIf { ui.weather.loaded })?.let { "$it°" } ?: "–")
-                    MiniStat("Trip", "%.0f %s".format(ui.kmShown(ui.gps.tripKm), ui.distanceUnit))
+                    MiniStat("Heading", if (ui.gps.hasFix) com.vizionconcepts.drive.vehicle.TripComputer.cardinal(ui.gps.bearing) else "–")
+                    MiniStat("Altitude", if (ui.gps.hasFix) "${ui.gps.altitudeM.toInt()} m" else "–")
+                    MiniStat("Outside", ui.weather.tempC.toInt().takeIf { ui.weather.loaded }?.let { "$it°" } ?: "–")
+                    MiniStat("Trip", "%.1f %s".format(ui.kmShown(ui.gps.tripKm), ui.distanceUnit))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Performance") { open(Overlay.PERFORMANCE) }
@@ -345,14 +335,28 @@ private fun DockButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 @Composable
 fun PerformanceView(ui: UiState, onClose: () -> Unit) {
     val p = LocalPalette.current
-    val obd = ui.obd
-    var maxRpm by remember { mutableStateOf(0f) }
-    var maxBoost by remember { mutableStateOf(0f) }
-    val rpm = obd[ObdPid.RPM] ?: 0f
-    val map = obd[ObdPid.MAP]
-    LaunchedEffect(rpm, map) {
-        if (rpm > maxRpm) maxRpm = rpm
-        if ((map ?: 0f) > maxBoost) maxBoost = map ?: 0f
+    val g = ui.gps
+    val kmh = g.speedMps * 3.6f
+    val mph = ui.settings.unit.name == "MPH"
+    val target = if (mph) 96.56f else 100f            // 0–60 mph or 0–100 km/h
+    // GPS-timed sprint: arms when stopped, starts on moving off, stops at the target speed.
+    var armed by remember { mutableStateOf(false) }
+    var startAt by remember { mutableLongStateOf(0L) }
+    var last by remember { mutableStateOf<Float?>(null) }
+    var best by remember { mutableStateOf<Float?>(null) }
+    var running by remember { mutableStateOf(0f) }
+    LaunchedEffect(kmh) {
+        val t = System.currentTimeMillis()
+        when {
+            kmh < 2f -> { armed = true; startAt = 0L; running = 0f }
+            armed && startAt == 0L -> startAt = t
+            startAt > 0L && kmh >= target -> {
+                val sec = (t - startAt) / 1000f
+                last = sec; best = best?.let { minOf(it, sec) } ?: sec
+                armed = false; startAt = 0L; running = 0f
+            }
+            startAt > 0L -> running = (t - startAt) / 1000f
+        }
     }
     Box(Modifier.fillMaxSize().background(Color.Black).padding(28.dp)) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
@@ -361,29 +365,31 @@ fun PerformanceView(ui: UiState, onClose: () -> Unit) {
                 Spacer(Modifier.weight(1f))
                 RoundIcon(Icons.Default.Close, onClick = onClose)
             }
-            if (!obd.connected) {
-                Text("Connect an OBD-II adapter for live engine data. GPS speed shown below.", color = p.dim, fontSize = 16.sp)
-            }
-            SegmentBar(rpm / 8000f, segments = 48, redFrom = ui.settings.shiftRpm / 8000f, shiftLight = true)
+            if (!g.hasFix) Text("Waiting for GPS…", color = p.danger, fontSize = 16.sp)
+            SegmentBar((ui.speedShown / ui.speedMax).coerceIn(0f, 1f), segments = 48)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("${ui.speedShown}", color = Color.White, fontSize = 150.sp, fontWeight = FontWeight.Bold, lineHeight = 150.sp)
                     Text(ui.settings.unit.label, color = p.dim, fontSize = 18.sp)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${rpm.toInt()}", color = if (rpm >= ui.settings.shiftRpm) p.danger else Color.White, fontSize = 90.sp, fontWeight = FontWeight.Bold)
-                    Text("rpm", color = p.dim, fontSize = 18.sp)
+                    val shown = if (startAt > 0L) running else last
+                    Text(shown?.let { String.format(java.util.Locale.US, "%.1f s", it) } ?: "--", color = if (startAt > 0L) p.accent else Color.White,
+                        fontSize = 90.sp, fontWeight = FontWeight.Bold)
+                    Text(if (mph) "0–60 MPH" else "0–100 KM/H", color = p.dim, fontSize = 18.sp)
+                    Text(if (armed && startAt == 0L) "Ready – pull away to start" else "Stop to arm the timer", color = p.dim, fontSize = 13.sp)
                 }
             }
+            val tripMin = (g.tripMovingMs / 60000L).toInt()
             val stats = listOf(
-                "Throttle" to obd[ObdPid.THROTTLE]?.let { "${it.toInt()}%" },
-                "Load" to obd[ObdPid.ENGINE_LOAD]?.let { "${it.toInt()}%" },
-                "MAP" to map?.let { "${it.toInt()} kPa" },
-                "Coolant" to obd[ObdPid.COOLANT]?.let { "${it.toInt()}°C" },
-                "Intake" to obd[ObdPid.INTAKE_TEMP]?.let { "${it.toInt()}°C" },
-                "Peak RPM" to (if (maxRpm > 0) "${maxRpm.toInt()}" else null),
-                "Peak MAP" to (if (maxBoost > 0) "${maxBoost.toInt()} kPa" else null),
-                "Top speed" to "${ui.mpsShown(ui.gps.tripMaxMps)} ${ui.settings.unit.label}",
+                "Best sprint" to best?.let { String.format(java.util.Locale.US, "%.1f s", it) },
+                "Top speed" to "${ui.mpsShown(g.tripMaxMps)} ${ui.settings.unit.label}",
+                "Avg speed" to "${ui.mpsShown(g.tripAvgMps)} ${ui.settings.unit.label}",
+                "Trip" to String.format(java.util.Locale.US, "%.1f %s", ui.kmShown(g.tripKm), ui.distanceUnit),
+                "Trip time" to "%d:%02d".format(tripMin / 60, tripMin % 60),
+                "Heading" to (if (g.hasFix) com.vizionconcepts.drive.vehicle.TripComputer.cardinal(g.bearing) else null),
+                "Altitude" to (if (g.hasFix) "${g.altitudeM.toInt()} m" else null),
+                "Outside" to ui.weather.tempC.toInt().takeIf { ui.weather.loaded }?.let { "$it°C" },
             )
             val cfg = LocalConfiguration.current
             val perRow = if (cfg.screenHeightDp > cfg.screenWidthDp) 4 else 8
@@ -394,6 +400,7 @@ fun PerformanceView(ui: UiState, onClose: () -> Unit) {
                     }
                 }
             }
+            Text("Sprint times are measured from GPS, so allow ±0.5 s.", color = p.dim, fontSize = 12.sp)
         }
     }
 }

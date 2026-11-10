@@ -278,6 +278,16 @@ class DigitalDashTest {
         assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP", "AVG_SPEED", "TOP_SPEED", "TRIP_TIME", "ALTITUDE"), names)
     }
 
+    @Test fun engineWidgetsAreDroppedAndNotOffered() {
+        val l = DashboardLayout.of(listOf(WidgetType.TACHO, WidgetType.CLOCK, WidgetType.OBD_QUAD), listOf(WidgetType.RPM_BAR))
+        val clean = l.withoutEngineWidgets()
+        assertEquals(listOf(WidgetType.CLOCK), clean.types(0))
+        assertTrue(clean.pages[1].isEmpty())
+        assertTrue(WidgetType.entries.filter { it.offered }.none { it.needsObd })
+        // no preset relies on engine data any more
+        for (p in Presets.entries) assertTrue(p.name, p.layout.pages.flatten().none { it.type.needsObd })
+    }
+
     @Test fun speedFromFixesWhenGpsDoesNotReportIt() {
         // ~27.8 m north in 1 s ≈ 100 km/h
         val v = TripComputer.derivedSpeed(-38.0, 145.0, 1_000L, -38.0 + 27.8 / 111_195.0, 145.0, 2_000L)!!

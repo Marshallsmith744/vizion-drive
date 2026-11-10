@@ -102,8 +102,8 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
     val accent = Color(ui.settings.dashColor)
     val speed = ui.speedShown
     val speedF by animateFloatAsState(DashMath.fraction(speed.toFloat(), 0f, ui.speedMax), tween(220), label = "twinSpeed")
-    val rpm = ui.obd[ObdPid.RPM]
-    val rpmF by animateFloatAsState(DashMath.fraction(rpm ?: 0f, 0f, 8000f), tween(180), label = "twinRpm")
+    // Top speed this trip (on the small upper sub-dial) — everything here works from GPS alone.
+    val topF by animateFloatAsState(DashMath.fraction(ui.mpsShown(ui.gps.tripMaxMps).toFloat(), 0f, ui.speedMax), tween(300), label = "twinTop")
     val gps = ui.gps
     val unit = ui.settings.unit.label
     val media = ui.media
@@ -121,14 +121,14 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
                 Brush.verticalGradient(listOf(Color(0xFFB9BEC6), Color(0xFF3A3E44), Color(0xFF9AA0A8))),
                 Offset(h * 0.01f, h * 0.01f), Size(w - h * 0.02f, h - h * 0.02f), CornerRadius(h * 0.06f), style = Stroke(h * 0.012f),
             )
-            // Rainbow level bars on both edges: rpm on the left (speed until rpm arrives), speed on the right
-            levelBar(Rect(Offset(h * 0.035f, h * 0.18f), Size(w * 0.012f, h * 0.64f)), if (rpm != null) rpmF else speedF)
+            // Rainbow level bars on both edges show speed
+            levelBar(Rect(Offset(h * 0.035f, h * 0.18f), Size(w * 0.012f, h * 0.64f)), speedF)
             levelBar(Rect(Offset(w - h * 0.035f - w * 0.012f, h * 0.18f), Size(w * 0.012f, h * 0.64f)), speedF)
 
             val r = min(w * 0.19f, h * 0.43f)
             val lc = Offset(w * 0.215f, h * 0.45f)
             val rc = Offset(w * 0.785f, h * 0.45f)
-            speedCluster(lc, r, speedF, ui.speedMax, gps.bearing, rpmF, rpm != null, gps.altitudeM, accent)
+            speedCluster(lc, r, speedF, ui.speedMax, gps.bearing, topF, true, gps.altitudeM, accent)
             watchFace(rc, r, now, accent)
 
             // Trip box under the speed cluster
@@ -163,9 +163,10 @@ fun TwinDash(ui: UiState, modifier: Modifier = Modifier) {
 
             // Mini gauges along the bottom centre
             val mini = listOf(
-                Triple("COOLANT", DashChannel.COOLANT.fraction(obd), DashChannel.COOLANT.text(obd)),
-                Triple("FUEL", DashChannel.FUEL.fraction(obd), DashChannel.FUEL.text(obd)),
-                Triple("OUTSIDE", DashChannel.OUTSIDE.fraction(obd), DashChannel.OUTSIDE.text(obd)),
+                Triple("AVG", DashMath.fraction(ui.mpsShown(gps.tripAvgMps).toFloat(), 0f, ui.speedMax), "${ui.mpsShown(gps.tripAvgMps)}"),
+                Triple("TOP", DashMath.fraction(ui.mpsShown(gps.tripMaxMps).toFloat(), 0f, ui.speedMax), "${ui.mpsShown(gps.tripMaxMps)}"),
+                Triple("OUTSIDE", if (ui.weather.loaded) DashMath.fraction(ui.weather.tempC.toFloat(), -10f, 45f) else 0f,
+                    if (ui.weather.loaded) "${ui.weather.tempC.toInt()}°" else "--"),
             )
             val mr = h * 0.065f
             mini.forEachIndexed { i, (name, frac, txt) ->
@@ -232,9 +233,9 @@ private fun DrawScope.speedCluster(c: Offset, r: Float, f: Float, max: Float, be
     subDial(rpmC, sr)
     for (k in 0..8) {
         val a = 135f + 270f * k / 8f
-        drawLine(if (k >= 7) DashRed else DashWhite, at(rpmC, sr * 0.92f, a), at(rpmC, sr * 0.75f, a), strokeWidth = sr * 0.05f)
+        drawLine(DashWhite, at(rpmC, sr * 0.92f, a), at(rpmC, sr * 0.75f, a), strokeWidth = sr * 0.05f)
     }
-    label("×1000", rpmC.x, rpmC.y + sr * 0.5f, sr * 0.2f, DashDim, face = plain)
+    label("TOP", rpmC.x, rpmC.y + sr * 0.5f, sr * 0.2f, DashDim, face = plain)
     if (hasRpm) hand(rpmC, sr * 0.82f, 135f + 270f * rpmF, sr * 0.08f, accent)
 
     val compC = Offset(c.x - r * 0.4f, c.y + r * 0.18f)

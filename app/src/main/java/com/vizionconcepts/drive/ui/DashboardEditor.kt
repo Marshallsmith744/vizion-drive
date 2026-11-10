@@ -109,7 +109,7 @@ fun DashboardEditor(ui: UiState, c: AppContainer, onClose: () -> Unit) {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         item { Text("ADD WIDGET", color = p.dim, fontSize = 12.sp, letterSpacing = 1.sp) }
                         item { Text("Digital dashes live in Settings → Digital Dash", color = p.accent, fontSize = 13.sp, modifier = Modifier.padding(10.dp)) }
-                        items(WidgetType.entries.filter { !it.isFullDash }) { w ->
+                        items(WidgetType.entries.filter { it.offered }) { w ->
                             Row(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                                     .clickable {
