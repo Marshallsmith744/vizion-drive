@@ -20,6 +20,10 @@ enum class SpeedUnit(val label: String, val fromMps: Float) {
     KMH("km/h", 3.6f), MPH("mph", 2.23694f)
 }
 enum class LayoutMode { SPLIT, FULL }
+enum class GaugeStyle(val label: String) {
+    DIGITAL("Digital"), ARC("Arc"), NEEDLE("Needle dial"), RING("Ring"), BAR("Segment bar"), HUD("HUD")
+}
+enum class NumberColor { TEXT, ACCENT }
 enum class DockPosition { BOTTOM, TOP }
 enum class BackgroundStyle(val label: String) {
     BLACK("Pure black"), GRAPHITE("Graphite"), MIDNIGHT("Midnight blue"),
@@ -57,6 +61,10 @@ data class Settings(
     val lowVoltageAlert: Float = 11.8f,
     val shiftRpm: Int = 6000,
     val noteText: String = "Vizion Drive",
+    val speedStyle: GaugeStyle = GaugeStyle.DIGITAL,
+    val rpmStyle: GaugeStyle = GaugeStyle.BAR,
+    val speedColor: NumberColor = NumberColor.TEXT,
+    val panelRpm: Boolean = true,
 )
 
 private val Context.store: DataStore<Preferences> by preferencesDataStore(name = "vizion_drive")
@@ -88,6 +96,10 @@ class SettingsRepository(private val context: Context) {
         val voltage = floatPreferencesKey("voltage_alert")
         val shiftRpm = intPreferencesKey("shift_rpm")
         val note = stringPreferencesKey("note")
+        val speedStyle = stringPreferencesKey("speed_style")
+        val rpmStyle = stringPreferencesKey("rpm_style")
+        val speedColor = stringPreferencesKey("speed_color")
+        val panelRpm = booleanPreferencesKey("panel_rpm")
     }
 
     val settings: Flow<Settings> = context.store.data.map { readFrom(it, Settings()) }
@@ -119,6 +131,10 @@ class SettingsRepository(private val context: Context) {
             p[K.voltage] = s.lowVoltageAlert
             p[K.shiftRpm] = s.shiftRpm
             p[K.note] = s.noteText
+            p[K.speedStyle] = s.speedStyle.name
+            p[K.rpmStyle] = s.rpmStyle.name
+            p[K.speedColor] = s.speedColor.name
+            p[K.panelRpm] = s.panelRpm
         }
     }
 
@@ -147,6 +163,10 @@ class SettingsRepository(private val context: Context) {
         lowVoltageAlert = p[K.voltage] ?: d.lowVoltageAlert,
         shiftRpm = p[K.shiftRpm] ?: d.shiftRpm,
         noteText = p[K.note] ?: d.noteText,
+        speedStyle = enumOr(p[K.speedStyle], d.speedStyle),
+        rpmStyle = enumOr(p[K.rpmStyle], d.rpmStyle),
+        speedColor = enumOr(p[K.speedColor], d.speedColor),
+        panelRpm = p[K.panelRpm] ?: d.panelRpm,
     )
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =

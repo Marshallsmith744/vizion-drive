@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +54,8 @@ import com.vizionconcepts.drive.obd.ObdState
 import com.vizionconcepts.drive.settings.ACCENTS
 import com.vizionconcepts.drive.settings.BackgroundStyle
 import com.vizionconcepts.drive.settings.DockPosition
+import com.vizionconcepts.drive.settings.GaugeStyle
+import com.vizionconcepts.drive.settings.NumberColor
 import com.vizionconcepts.drive.settings.LayoutMode
 import com.vizionconcepts.drive.settings.Settings
 import com.vizionconcepts.drive.settings.SpeedUnit
@@ -60,7 +63,7 @@ import com.vizionconcepts.drive.settings.ThemeMode
 import kotlinx.coroutines.launch
 
 enum class SettingsTab(val title: String) {
-    APPEARANCE("Appearance"), LAYOUT("Layout & dock"), DRIVING("Driving"),
+    APPEARANCE("Appearance"), GAUGES("Gauges"), LAYOUT("Layout & dock"), DRIVING("Driving"),
     OBD("OBD-II"), AMBIENT("Ambient light"), APPS("Apps & startup"), ABOUT("About"),
 }
 
@@ -97,6 +100,7 @@ fun SettingsScreen(ui: UiState, c: AppContainer, activity: HomeActivity, initial
             Spacer(Modifier.height(12.dp))
             when (tab) {
                 SettingsTab.APPEARANCE -> Appearance(ui.settings, update)
+                SettingsTab.GAUGES -> Gauges(ui.settings, update)
                 SettingsTab.LAYOUT -> LayoutSettings(ui.settings, update)
                 SettingsTab.DRIVING -> Driving(ui.settings, update)
                 SettingsTab.OBD -> ObdSettings(ui, c, activity, update)
@@ -150,7 +154,7 @@ private fun SliderRow(title: String, valueText: String, value: Float, range: Clo
 
 @Composable
 private fun <T> ChoiceRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp).horizontalScroll(rememberScrollState())) {
         for (o in options) Chip(label(o), selected = o == selected) { onSelect(o) }
     }
 }
@@ -185,6 +189,49 @@ private fun Appearance(s: Settings, update: ((Settings) -> Settings) -> Unit) {
     }
     Section("Cards") {
         SliderRow("Card opacity", "${(s.cardOpacity * 100).toInt()}%", s.cardOpacity, 0.3f..1f) { v -> update { it.copy(cardOpacity = v) } }
+    }
+}
+
+@Composable
+private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
+    val p = LocalPalette.current
+    val sampleSpeed = if (s.unit == SpeedUnit.MPH) 62 else 100
+    Section("Speedometer style") {
+        Body("Used for the big speed on the vehicle panel and the \"Speedometer (your gauge style)\" widget.")
+        GaugePicker(s.speedStyle) { st -> update { it.copy(speedStyle = st) } }
+        Box(Modifier.fillMaxWidth().height(260.dp).padding(top = 12.dp)) {
+            StyledGauge(
+                s.speedStyle, sampleSpeed.toFloat(), if (s.unit == SpeedUnit.MPH) 160f else 260f, "$sampleSpeed", s.unit.label,
+                Modifier.fillMaxSize(), numberSize = 96.sp,
+                numberColor = if (s.speedColor == NumberColor.ACCENT) p.accent else null,
+            )
+        }
+    }
+    Section("Speed number colour") {
+        ChoiceRow(NumberColor.entries, s.speedColor, { if (it == NumberColor.TEXT) "White" else "Accent colour" }) { c ->
+            update { it.copy(speedColor = c) }
+        }
+    }
+    Section("Tachometer style") {
+        Body("Used for the \"Tachometer (your gauge style)\" widget. Needs engine data (OBD or CANbus).")
+        GaugePicker(s.rpmStyle) { st -> update { it.copy(rpmStyle = st) } }
+        Box(Modifier.fillMaxWidth().height(260.dp).padding(top = 12.dp)) {
+            val digital = s.rpmStyle == GaugeStyle.DIGITAL || s.rpmStyle == GaugeStyle.BAR
+            StyledGauge(
+                s.rpmStyle, 4.2f, 8f, if (digital) "4200" else "4.2", if (digital) "rpm" else "×1000 rpm",
+                Modifier.fillMaxSize(), redFrom = s.shiftRpm / 1000f, numberSize = 96.sp,
+            )
+        }
+        ToggleRow("RPM bar on the vehicle panel", "Shows a shift-light bar under the speed", s.panelRpm) { on ->
+            update { it.copy(panelRpm = on) }
+        }
+    }
+}
+
+@Composable
+private fun GaugePicker(selected: GaugeStyle, onSelect: (GaugeStyle) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
+        for (g in GaugeStyle.entries) Chip(g.label, selected = g == selected) { onSelect(g) }
     }
 }
 

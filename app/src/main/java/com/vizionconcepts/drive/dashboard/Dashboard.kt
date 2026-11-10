@@ -2,6 +2,8 @@ package com.vizionconcepts.drive.dashboard
 
 /** Every widget the dashboard can show. `span` = grid columns used on a 2-column page. */
 enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = false) {
+    SPEEDO("Speedometer (your gauge style)", 1),
+    TACHO("Tachometer (your gauge style)", 1, needsObd = true),
     SPEED_ARC("Speed – arc", 1),
     SPEED_DIGITAL("Speed – digital", 1),
     SPEED_BAR("Speed – bar", 2),
@@ -82,7 +84,7 @@ enum class Presets(val title: String, val description: String, val layout: Dashb
         "Classic", "Speed, clock, music and navigation",
         DashboardLayout(
             listOf(
-                listOf(WidgetType.SPEED_ARC, WidgetType.CLOCK, WidgetType.MEDIA, WidgetType.NAVIGATION, WidgetType.WEATHER),
+                listOf(WidgetType.SPEEDO, WidgetType.CLOCK, WidgetType.MEDIA, WidgetType.NAVIGATION, WidgetType.WEATHER),
                 listOf(WidgetType.TRIP, WidgetType.COMPASS, WidgetType.APP_SHORTCUTS, WidgetType.VOLUME, WidgetType.AMBIENT),
             )
         )
@@ -91,7 +93,7 @@ enum class Presets(val title: String, val description: String, val layout: Dashb
         "Performance", "Engine data first",
         DashboardLayout(
             listOf(
-                listOf(WidgetType.RPM_BAR, WidgetType.SPEED_DIGITAL, WidgetType.OBD_SINGLE, WidgetType.OBD_QUAD),
+                listOf(WidgetType.RPM_BAR, WidgetType.TACHO, WidgetType.SPEEDO, WidgetType.OBD_QUAD),
                 listOf(WidgetType.DTC, WidgetType.TRIP, WidgetType.MEDIA),
             )
         )

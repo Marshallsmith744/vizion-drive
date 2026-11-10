@@ -84,6 +84,11 @@ data class UiState(
     /** Vehicle speed in km/h — OBD when available (more accurate), otherwise GPS. */
     val speedKmh: Float get() = obd[ObdPid.SPEED] ?: (gps.speedMps * 3.6f)
     val speedShown: Int get() = (speedKmh / 3.6f * settings.unit.fromMps).toInt()
+    val speedMax: Float get() = if (settings.unit.name == "MPH") 160f else 260f
+
+    @Composable
+    fun speedNumberColor(): Color? =
+        if (settings.speedColor == com.vizionconcepts.drive.settings.NumberColor.ACCENT) LocalPalette.current.accent else null
     fun mpsShown(mps: Float): Int = (mps * settings.unit.fromMps).toInt()
     val distanceUnit get() = if (settings.unit.name == "MPH") "mi" else "km"
     fun kmShown(km: Double) = if (settings.unit.name == "MPH") km / 1.609344 else km
@@ -97,6 +102,19 @@ fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -
             return@Card
         }
         when (type) {
+            WidgetType.SPEEDO -> StyledGauge(
+                ui.settings.speedStyle, ui.speedShown.toFloat(), ui.speedMax, "${ui.speedShown}", ui.settings.unit.label,
+                Modifier.fillMaxSize(), redFrom = ui.settings.speedAlert.takeIf { it > 0 }?.toFloat(),
+                numberColor = ui.speedNumberColor(),
+            )
+            WidgetType.TACHO -> {
+                val rpm = ui.obd[ObdPid.RPM] ?: 0f
+                StyledGauge(
+                    ui.settings.rpmStyle, rpm / 1000f, 8f, if (ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.DIGITAL || ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.BAR) "${rpm.toInt()}" else "%.1f".format(rpm / 1000f),
+                    if (ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.DIGITAL || ui.settings.rpmStyle == com.vizionconcepts.drive.settings.GaugeStyle.BAR) "rpm" else "×1000 rpm",
+                    Modifier.fillMaxSize(), redFrom = ui.settings.shiftRpm / 1000f,
+                )
+            }
             WidgetType.SPEED_ARC -> ArcGauge(ui.speedShown.toFloat(), 0f, if (ui.settings.unit.name == "MPH") 140f else 220f,
                 "${ui.speedShown}", ui.settings.unit.label, Modifier.fillMaxSize())
             WidgetType.SPEED_DIGITAL -> BigNumber("${ui.speedShown}", ui.settings.unit.label, if (ui.gps.hasFix || ui.obd.connected) "" else "waiting for GPS")

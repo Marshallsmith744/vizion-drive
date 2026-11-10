@@ -175,15 +175,14 @@ private fun VehiclePanel(ui: UiState, modifier: Modifier, open: (Overlay) -> Uni
                     }
                 }
             }
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "${ui.speedShown}",
-                    color = if (over) p.danger else p.text,
-                    fontSize = 140.sp, fontWeight = FontWeight.Bold, lineHeight = 140.sp,
-                )
-                Text(ui.settings.unit.label.uppercase(), color = p.dim, fontSize = 18.sp, letterSpacing = 3.sp)
-            }
-            if (obd.connected) {
+            StyledGauge(
+                ui.settings.speedStyle, ui.speedShown.toFloat(), ui.speedMax, "${ui.speedShown}", ui.settings.unit.label,
+                Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp),
+                redFrom = ui.settings.speedAlert.takeIf { it > 0 }?.toFloat(),
+                numberSize = 140.sp,
+                numberColor = if (over) p.danger else ui.speedNumberColor(),
+            )
+            if (obd.connected && ui.settings.panelRpm) {
                 val rpm = obd[ObdPid.RPM] ?: 0f
                 Column {
                     Text("${rpm.toInt()} rpm", color = p.dim, fontSize = 13.sp)
@@ -213,14 +212,14 @@ private fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overlay
     val over = ui.settings.speedAlert > 0 && ui.speedShown > ui.settings.speedAlert
     Card(modifier, padding = 20) {
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(0.42f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "${ui.speedShown}",
-                    color = if (over) p.danger else p.text,
-                    fontSize = 120.sp, fontWeight = FontWeight.Bold, lineHeight = 120.sp,
-                )
-                Text(ui.settings.unit.label.uppercase(), color = p.dim, fontSize = 16.sp, letterSpacing = 3.sp)
-            }
+            StyledGauge(
+                ui.settings.speedStyle, ui.speedShown.toFloat(), ui.speedMax, "${ui.speedShown}", ui.settings.unit.label,
+                Modifier.weight(0.42f).fillMaxHeight(),
+                redFrom = ui.settings.speedAlert.takeIf { it > 0 }?.toFloat(),
+                numberSize = 120.sp,
+                numberColor = if (over) p.danger else ui.speedNumberColor(),
+            )
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(0.58f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     StatusPill(
@@ -236,7 +235,7 @@ private fun VehiclePanelPortrait(ui: UiState, modifier: Modifier, open: (Overlay
                         }
                     }
                 }
-                if (obd.connected) {
+                if (obd.connected && ui.settings.panelRpm) {
                     val rpm = obd[ObdPid.RPM] ?: 0f
                     Column {
                         Text("${rpm.toInt()} rpm", color = p.dim, fontSize = 13.sp)
