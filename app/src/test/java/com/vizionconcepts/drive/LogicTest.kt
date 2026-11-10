@@ -219,3 +219,59 @@ class MiscTest {
         assertArrayEquals(byteArrayOf(0x7E, 0, 1, 50, 0, 0, 0, 0, 0xEF.toByte()), ElkBledom.brightness(50))
     }
 }
+
+class DigitalDashTest {
+    @Test fun boostFromManifoldPressure() {
+        assertEquals(0f, com.vizionconcepts.drive.dashboard.DashMath.boostPsi(101.325f), 0.01f)
+        assertEquals(14.5f, com.vizionconcepts.drive.dashboard.DashMath.boostPsi(201.325f), 0.05f)
+        assertTrue(com.vizionconcepts.drive.dashboard.DashMath.boostPsi(30f) < -10f)
+    }
+
+    @Test fun segmentsAndFractionsClamp() {
+        val m = com.vizionconcepts.drive.dashboard.DashMath
+        assertEquals(0, m.segmentsLit(-1f, 10))
+        assertEquals(5, m.segmentsLit(0.5f, 10))
+        assertEquals(10, m.segmentsLit(3f, 10))
+        assertEquals(0.5f, m.fraction(80f, 40f, 120f), 0.001f)
+        assertEquals(1f, m.fraction(500f, 40f, 120f), 0.001f)
+        assertEquals(0f, m.fraction(5f, 10f, 10f), 0.001f)
+    }
+
+    @Test fun clockHands() {
+        val (h, m, s) = com.vizionconcepts.drive.dashboard.DashMath.handAngles(15, 30, 0)
+        assertEquals(105f, h, 0.01f)
+        assertEquals(180f, m, 0.01f)
+        assertEquals(0f, s, 0.01f)
+    }
+
+    @Test fun tachoScaleCoversShiftPoint() {
+        val m = com.vizionconcepts.drive.dashboard.DashMath
+        assertEquals(8, m.tachoMax(6000))
+        assertEquals(9, m.tachoMax(7500))
+        assertTrue(m.tachoMax(7500) * 1000 > 7500)
+    }
+
+    @Test fun channelsReadObdAndShowDashesWhenMissing() {
+        val ch = com.vizionconcepts.drive.dashboard.DashChannel
+        val empty = com.vizionconcepts.drive.obd.ObdSnapshot()
+        assertEquals("--", ch.COOLANT.text(empty))
+        assertEquals(0f, ch.COOLANT.fraction(empty), 0f)
+        val snap = com.vizionconcepts.drive.obd.ObdSnapshot(values = mapOf(
+            com.vizionconcepts.drive.obd.ObdPid.COOLANT to 90.4f,
+            com.vizionconcepts.drive.obd.ObdPid.VOLTAGE to 14.13f,
+        ))
+        assertEquals("90", ch.COOLANT.text(snap))
+        assertEquals("14.1", ch.BATTERY.text(snap))
+        assertEquals(4, ch.LEFT.size); assertEquals(4, ch.RIGHT.size)
+    }
+
+    @Test fun dashesStartFullWidthAndStayProportional() {
+        val l = DashboardLayout(listOf(emptyList())).addWidget(0, WidgetType.RACE_DASH)
+        val p = l.pages[0][0]
+        assertEquals(1f, p.w, 0.001f)
+        assertEquals(0.6f, p.h, 0.001f)
+        val smaller = p.resized(0.5f)
+        assertEquals(0.3f, smaller.h, 0.01f)
+    }
+}
+

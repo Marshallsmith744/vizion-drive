@@ -103,6 +103,12 @@ data class UiState(
 
 @Composable
 fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -> Unit, modifier: Modifier = Modifier) {
+    // Digital dashes draw their own full-bleed face.
+    when (type) {
+        WidgetType.RACE_DASH -> { RaceDash(ui, modifier); return }
+        WidgetType.TWIN_DASH -> { TwinDash(ui, modifier); return }
+        else -> Unit
+    }
     Card(modifier) {
         if (type.needsObd && !ui.obd.connected) {
             ObdNeeded(type, onClick = { open(Overlay.SETTINGS_OBD) })
@@ -156,6 +162,7 @@ fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -
             WidgetType.AMBIENT -> AmbientWidget(ui.ambient, c, open)
             WidgetType.VOLUME -> VolumeWidget(ui.volume, c)
             WidgetType.NOTE -> NoteWidget(ui.settings.noteText)
+            WidgetType.RACE_DASH, WidgetType.TWIN_DASH -> Unit
         }
     }
 }

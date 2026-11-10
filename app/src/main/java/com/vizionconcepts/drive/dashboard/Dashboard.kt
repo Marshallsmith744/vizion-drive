@@ -8,6 +8,8 @@ package com.vizionconcepts.drive.dashboard
 enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = false, val aspect: Float = if (span == 2) 0.42f else 1f) {
     SPEEDO("Speedometer (your gauge style)", 1),
     TACHO("Tachometer (your gauge style)", 1, needsObd = true),
+    RACE_DASH("Race dash – tacho + data tiles", 2, aspect = 0.6f),
+    TWIN_DASH("Twin-dial dash – speed + clock", 2, aspect = 0.56f),
     SPEED_ARC("Speed – arc", 1),
     SPEED_DIGITAL("Speed – digital", 1, aspect = 0.8f),
     SPEED_BAR("Speed – bar", 2),
@@ -25,7 +27,10 @@ enum class WidgetType(val title: String, val span: Int, val needsObd: Boolean = 
     DTC("Engine codes", 1, needsObd = true, aspect = 0.85f),
     AMBIENT("Ambient light", 1, aspect = 0.85f),
     VOLUME("Volume", 1, aspect = 0.75f),
-    NOTE("Note", 1, aspect = 0.5f),
+    NOTE("Note", 1, aspect = 0.5f);
+
+    /** Whole-screen digital dashes start at full page width. */
+    val isFullDash: Boolean get() = this == RACE_DASH || this == TWIN_DASH
 }
 
 /**
@@ -47,7 +52,11 @@ data class Placement(val type: WidgetType, val x: Float, val y: Float, val w: Fl
         const val MIN_W = 0.16f
         fun snap(v: Float) = Math.round(v / GRID) * GRID
         private fun fmt(v: Float) = "%.4f".format(java.util.Locale.US, v)
-        fun defaultWidth(t: WidgetType) = if (t.span == 2) 0.64f else 0.32f
+        fun defaultWidth(t: WidgetType) = when {
+            t.isFullDash -> 1f
+            t.span == 2 -> 0.64f
+            else -> 0.32f
+        }
     }
 }
 
@@ -144,6 +153,13 @@ enum class Presets(val title: String, val description: String, val layout: Dashb
         DashboardLayout.of(
             listOf(WidgetType.TACHO, WidgetType.SPEEDO, WidgetType.OBD_SINGLE, WidgetType.OBD_QUAD, WidgetType.DTC),
             listOf(WidgetType.RPM_BAR, WidgetType.TRIP, WidgetType.MEDIA),
+        )
+    ),
+    DIGITAL(
+        "Digital dash", "Race dash and twin-dial dash, one per page",
+        DashboardLayout.of(
+            listOf(WidgetType.RACE_DASH, WidgetType.MEDIA, WidgetType.CLOCK),
+            listOf(WidgetType.TWIN_DASH, WidgetType.MEDIA, WidgetType.WEATHER),
         )
     ),
     MINIMAL(
