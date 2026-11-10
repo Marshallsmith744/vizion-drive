@@ -104,7 +104,8 @@ fun FreePages(ui: UiState, c: AppContainer, modifier: Modifier, open: (Overlay) 
                         items.forEachIndexed { i, pl ->
                             PlacedWidget(
                                 pl, wDp, wPx, editing, ui, c, open,
-                                onCommit = { np -> commit(draft.update(index, i, np)) },
+                                // Edited widget comes to the front so its handles are never hidden under another widget.
+                                onCommit = { np -> commit(draft.update(index, i, np).moveWidget(index, i, items.lastIndex)) },
                                 onDelete = { commit(draft.removeWidget(index, i)) },
                             )
                         }
