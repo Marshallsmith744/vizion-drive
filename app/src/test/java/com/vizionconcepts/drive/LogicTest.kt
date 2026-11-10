@@ -278,6 +278,14 @@ class DigitalDashTest {
         assertEquals(setOf("COOLANT", "FUEL", "OUTSIDE", "TRIP", "AVG_SPEED", "TOP_SPEED", "TRIP_TIME", "ALTITUDE"), names)
     }
 
+    @Test fun clusterIsFullWidthAndTwoToOne() {
+        val l = DashboardLayout(listOf(emptyList())).addFullPage(WidgetType.CLUSTER_DASH)
+        val p = l.pages.last().single()
+        assertEquals(1f, p.w, 0f)
+        assertEquals(0.5f, p.h, 0.001f)
+        assertTrue(WidgetType.CLUSTER_DASH.isFullDash)
+    }
+
     @Test fun fullPageDashUsesWholeWidth() {
         val l = DashboardLayout.of(listOf(WidgetType.CLOCK)).addFullPage(WidgetType.TWIN_DASH)
         assertEquals(2, l.pages.size)

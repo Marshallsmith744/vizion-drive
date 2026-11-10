@@ -73,6 +73,10 @@ data class Settings(
     val customDial: Long = 0xFF00F0FF,
     /** Colour of the digital dashes (ARGB). Defaults to bright blue. */
     val dashColor: Long = 0xFF0A8CFF,
+    /** Accent of the twin-gauge cluster (needles, red zone, bars, glow lines). */
+    val clusterColor: Long = 0xFFE3141B,
+    /** Text in the cluster's top centre. */
+    val clusterTitle: String = "370Z",
     val bgVersion: Long = 0,
     val bgDim: Float = 0.35f,
     val bgBlur: Boolean = false,
@@ -116,6 +120,8 @@ class SettingsRepository(private val context: Context) {
         val dialColor = stringPreferencesKey("dial_color")
         val customDial = longPreferencesKey("custom_dial")
         val dashColor = longPreferencesKey("dash_color")
+        val clusterColor = longPreferencesKey("cluster_color")
+        val clusterTitle = stringPreferencesKey("cluster_title")
         val bgVersion = longPreferencesKey("bg_version")
         val bgDim = floatPreferencesKey("bg_dim")
         val bgBlur = booleanPreferencesKey("bg_blur")
@@ -157,6 +163,8 @@ class SettingsRepository(private val context: Context) {
             p[K.dialColor] = s.dialColor.name
             p[K.customDial] = s.customDial
             p[K.dashColor] = s.dashColor
+            p[K.clusterColor] = s.clusterColor
+            p[K.clusterTitle] = s.clusterTitle
             p[K.bgVersion] = s.bgVersion
             p[K.bgDim] = s.bgDim
             p[K.bgBlur] = s.bgBlur
@@ -195,6 +203,8 @@ class SettingsRepository(private val context: Context) {
         dialColor = enumOr(p[K.dialColor], d.dialColor),
         customDial = p[K.customDial] ?: d.customDial,
         dashColor = p[K.dashColor] ?: d.dashColor,
+        clusterColor = p[K.clusterColor] ?: d.clusterColor,
+        clusterTitle = p[K.clusterTitle] ?: d.clusterTitle,
         bgVersion = p[K.bgVersion] ?: d.bgVersion,
         bgDim = p[K.bgDim] ?: d.bgDim,
         bgBlur = p[K.bgBlur] ?: d.bgBlur,

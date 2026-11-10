@@ -106,6 +106,7 @@ fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -
     // Digital dashes draw their own full-bleed face.
     when (type) {
         WidgetType.TWIN_DASH -> { TwinDash(ui, modifier); return }
+        WidgetType.CLUSTER_DASH -> { ClusterDash(ui, modifier); return }
         else -> Unit
     }
     Card(modifier) {
@@ -161,7 +162,7 @@ fun WidgetView(type: WidgetType, ui: UiState, c: AppContainer, open: (Overlay) -
             WidgetType.AMBIENT -> AmbientWidget(ui.ambient, c, open)
             WidgetType.VOLUME -> VolumeWidget(ui.volume, c)
             WidgetType.NOTE -> NoteWidget(ui.settings.noteText)
-            WidgetType.TWIN_DASH -> Unit
+            WidgetType.TWIN_DASH, WidgetType.CLUSTER_DASH -> Unit
         }
     }
 }

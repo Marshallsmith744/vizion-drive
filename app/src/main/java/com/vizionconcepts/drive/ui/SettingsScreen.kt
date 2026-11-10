@@ -286,50 +286,70 @@ private fun Gauges(s: Settings, update: ((Settings) -> Settings) -> Unit) {
 @Composable
 private fun DigitalDashSettings(ui: UiState, c: AppContainer, update: ((Settings) -> Settings) -> Unit) {
     val ctx = LocalContext.current
+    val p = LocalPalette.current
     val s = ui.settings
     fun toast(msg: String) = android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
-    Section("Dash colour") {
-        Body("Sub-dial hands, rings and accents on the dash. The red shift zone starts at your shift-light rpm (Driving tab).")
+    @Composable
+    fun AddButtons(type: WidgetType) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
+            Chip("Add as its own page (full size)", selected = true) {
+                update { it.copy(layout = it.layout.addFullPage(type)) }
+                toast("Added as a new home page – swipe to it")
+            }
+            Chip("Add to current page") {
+                update { st ->
+                    val page = c.currentPage.value.coerceIn(0, (st.layout.pages.size - 1).coerceAtLeast(0))
+                    st.copy(layout = st.layout.addWidget(page, type))
+                }
+                toast("Added below your widgets – Edit dash to move it")
+            }
+        }
+    }
+    @Composable
+    fun ColourPicker(selected: Long, onPick: (Long) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
             for (dc in DialColor.entries.filter { it != DialColor.CUSTOM && it != DialColor.ACCENT }) {
-                Swatch(Color(dc.argb), dc.label, dc.argb == s.dashColor) { update { it.copy(dashColor = dc.argb) } }
+                Swatch(Color(dc.argb), dc.label, dc.argb == selected) { onPick(dc.argb) }
             }
         }
-        ColorWheel(s.dashColor, { argb -> update { it.copy(dashColor = argb) } })
+        ColorWheel(selected, onPick)
     }
-    val dashes = listOf(
-        WidgetType.TWIN_DASH to "Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face " +
-            "with date. Digital clock, speed and now-playing in the centre; rainbow rpm and speed bars on the edges; " +
-            "coolant, fuel and outside-temp mini gauges.",
-    )
-    for ((type, about) in dashes) {
-        Section(type.title.substringBefore(" –")) {
-            Body(about)
-            Box(Modifier.fillMaxWidth().aspectRatio(1f / type.aspect).padding(vertical = 6.dp)) {
-                TwinDash(ui, Modifier.fillMaxSize())
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
-                Chip("Add as its own page (full size)", selected = true) {
-                    update { it.copy(layout = it.layout.addFullPage(type)) }
-                    toast("Added as a new home page – swipe to it")
-                }
-                Chip("Add to current page") {
-                    update { st ->
-                        val page = c.currentPage.value.coerceIn(0, (st.layout.pages.size - 1).coerceAtLeast(0))
-                        st.copy(layout = st.layout.addWidget(page, type))
-                    }
-                    toast("Added below your widgets – Edit dash to move it")
-                }
-            }
-        }
+
+    Section("Twin-gauge cluster") {
+        Body("Tachometer and speedometer with chrome rings, coolant / oil temp / voltage / fuel bars, time and outside temp up top, odometer and trip along the bottom.")
+        Box(Modifier.fillMaxWidth().aspectRatio(2f).padding(vertical = 6.dp)) { ClusterDash(ui, Modifier.fillMaxSize()) }
+        AddButtons(WidgetType.CLUSTER_DASH)
+    }
+    Section("Cluster colour") {
+        Body("Needles, red zone, bars and glow lines. Pick a preset or use the wheel for any colour.")
+        ColourPicker(s.clusterColor) { argb -> update { it.copy(clusterColor = argb) } }
+    }
+    Section("Cluster title") {
+        var text by remember(s.clusterTitle) { mutableStateOf(s.clusterTitle) }
+        OutlinedTextField(
+            text, { text = it.take(12); update { st -> st.copy(clusterTitle = it.take(12)) } },
+            singleLine = true, modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = p.text, unfocusedTextColor = p.text,
+                focusedBorderColor = p.accent, unfocusedBorderColor = p.dim,
+            ),
+        )
+    }
+    Section("Twin-dial dash") {
+        Body("Two large dials: speedometer with rpm, compass and altitude sub-dials, and a watch face with date. Digital clock, speed and " +
+            "now-playing in the centre; rainbow rpm and speed bars on the edges; coolant, fuel and outside-temp mini gauges.")
+        Box(Modifier.fillMaxWidth().aspectRatio(1f / WidgetType.TWIN_DASH.aspect).padding(vertical = 6.dp)) { TwinDash(ui, Modifier.fillMaxSize()) }
+        AddButtons(WidgetType.TWIN_DASH)
+    }
+    Section("Twin-dial dash colour") {
+        ColourPicker(s.dashColor) { argb -> update { it.copy(dashColor = argb) } }
     }
     Section("Size") {
         Body("Dashes are widgets: Edit dash → drag the corner handle to shrink or grow one. It always keeps its shape; full width is the largest size.")
     }
     Section("Data shown") {
-        Body("Only values the head unit can read itself: rpm, speed, coolant temp, fuel level and outside temp from the car's CANbus " +
-            "(via the CAN decoder), plus GPS (trip, heading, altitude) and the clock. Anything not received yet shows --. " +
-            "Engine-computer-only values such as boost, throttle, AFR and oil temp are left out.")
+        Body("Values come from the car's CANbus (via the CAN decoder) and the head unit's own GPS and clock. " +
+            "Anything the car isn't sending shows -- until it arrives.")
     }
 }
 
