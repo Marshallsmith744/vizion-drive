@@ -170,6 +170,41 @@ fun ClusterDash(ui: UiState, modifier: Modifier = Modifier) {
             text("TRIP A", X(1060f), Y(812f), K(32f), Soft, fonts.w500)
             text(trip, X(1295f), Y(812f), K(46f), White, fonts.w600)
 
+            // ── Centre tiles: wide panels whose ends tuck in behind both gauge rings ──
+            tiles.forEachIndexed { i, t ->
+                val x = X(560f)
+                val y = Y(200f + i * 111.7f)
+                val w = K(654f)
+                val h = K(95f)
+                val cr = CornerRadius(K(18f))
+                val l = X(708f)   // content stays inside the visible gap between the rings
+                val r = X(1060f)
+                drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF1D1D20), Color(0xFF0B0B0C)), y, y + h), Offset(x, y), Size(w, h), cr)
+                drawRoundRect(Color(0xFF2E2F33), Offset(x, y), Size(w, h), cr, style = Stroke(K(2f)))
+                drawLine(Color.White.copy(alpha = 0.12f), Offset(x + K(18f), y + K(1.5f)), Offset(x + w - K(18f), y + K(1.5f)), strokeWidth = K(2f))
+                val sc = K(52f) / 24f
+                withTransform({ translate(l, y + K(22f)); scale(sc, sc, Offset.Zero) }) {
+                    for (p in icons[i]) drawPath(p, Color(0xFFEDEDF0), style = Stroke(1.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                }
+                text(t.name, l + K(72f), y + K(37f), K(26f), Color(0xFFEDEDF0), fonts.w500, Paint.Align.LEFT)
+                cPaint.typeface = fonts.w600; cPaint.textSize = K(26f)
+                val uw = cPaint.measureText(t.unit)
+                text(t.unit, r, y + K(46f), K(26f), White, fonts.w600, Paint.Align.RIGHT)
+                text(t.value, r - K(4f) - uw, y + K(40f), K(44f), White, fonts.w600, Paint.Align.RIGHT)
+                val bx = l + K(70f)
+                val bw = r - bx
+                val by = y + K(68f)
+                drawRoundRect(Color(0xFF26272A), Offset(bx, by), Size(bw, K(8f)), CornerRadius(K(4f)))
+                if (t.fraction > 0f) {
+                    val fw = bw * t.fraction
+                    drawRoundRect(acc.copy(alpha = 0.3f), Offset(bx, by - K(3f)), Size(fw, K(14f)), CornerRadius(K(7f)))
+                    drawRoundRect(
+                        Brush.horizontalGradient(0f to accD, 0.7f to acc, 1f to accL, startX = bx, endX = bx + fw),
+                        Offset(bx, by), Size(fw, K(8f)), CornerRadius(K(4f)),
+                    )
+                }
+            }
+
             // ── Gauge shell (shared) ──
             fun shell(c: Offset, glowStart: Float, glowSweep: Float) {
                 val r = K(338f)
@@ -269,38 +304,6 @@ fun ClusterDash(ui: UiState, modifier: Modifier = Modifier) {
                 text(if (mph) "mph" else "km/h", bTl.x + bSz.width / 2f, bTl.y + K(104f), K(26f), Color(0xFFEDEDF0), fonts.w500)
             }
 
-            // ── Centre tiles ──
-            tiles.forEachIndexed { i, t ->
-                val x = X(685f)
-                val y = Y(200f + i * 111.7f)
-                val w = K(405f)
-                val h = K(95f)
-                val cr = CornerRadius(K(18f))
-                drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF1D1D20), Color(0xFF0B0B0C)), y, y + h), Offset(x, y), Size(w, h), cr)
-                drawRoundRect(Color(0xFF2E2F33), Offset(x, y), Size(w, h), cr, style = Stroke(K(2f)))
-                drawLine(Color.White.copy(alpha = 0.12f), Offset(x + K(18f), y + K(1.5f)), Offset(x + w - K(18f), y + K(1.5f)), strokeWidth = K(2f))
-                val sc = K(58f) / 24f
-                withTransform({ translate(x + K(20f), y + K(20f)); scale(sc, sc, Offset.Zero) }) {
-                    for (p in icons[i]) drawPath(p, Color(0xFFEDEDF0), style = Stroke(1.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-                }
-                text(t.name, x + K(113f), y + K(37f), K(28f), Color(0xFFEDEDF0), fonts.w500, Paint.Align.LEFT)
-                cPaint.typeface = fonts.w600; cPaint.textSize = K(28f)
-                val uw = cPaint.measureText(t.unit)
-                text(t.unit, x + w - K(22f), y + K(46f), K(28f), White, fonts.w600, Paint.Align.RIGHT)
-                text(t.value, x + w - K(26f) - uw, y + K(40f), K(46f), White, fonts.w600, Paint.Align.RIGHT)
-                val bx = x + K(103f)
-                val bw = K(277f)
-                val by = y + K(68f)
-                drawRoundRect(Color(0xFF26272A), Offset(bx, by), Size(bw, K(8f)), CornerRadius(K(4f)))
-                if (t.fraction > 0f) {
-                    val fw = bw * t.fraction
-                    drawRoundRect(acc.copy(alpha = 0.3f), Offset(bx, by - K(3f)), Size(fw, K(14f)), CornerRadius(K(7f)))
-                    drawRoundRect(
-                        Brush.horizontalGradient(0f to accD, 0.7f to acc, 1f to accL, startX = bx, endX = bx + fw),
-                        Offset(bx, by), Size(fw, K(8f)), CornerRadius(K(4f)),
-                    )
-                }
-            }
         }
     }
 }
