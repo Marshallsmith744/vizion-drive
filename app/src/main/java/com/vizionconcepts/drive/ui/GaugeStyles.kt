@@ -53,6 +53,13 @@ fun StyledGauge(
         PremiumDial(style, value, max, text, unit, dialColor ?: p.accent, modifier, redFrom, gear)
         return
     }
+    // Dial colour drives every style, not just the cluster dials.
+    if (dialColor != null && dialColor != p.accent) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalPalette provides p.copy(accent = dialColor)) {
+            StyledGauge(style, value, max, text, unit, modifier, redFrom, numberSize, numberColor, null, gear)
+        }
+        return
+    }
     val inRed = redFrom != null && value >= redFrom
     val color = when {
         inRed -> p.danger
